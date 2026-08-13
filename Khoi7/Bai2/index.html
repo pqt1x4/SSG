@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Phán Đoán Siêu Tốc</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'main-red': '#91191c',
+                        'ai-cyan': '#00f0ff',
+                        'ai-blue': '#001a33',
+                        'ai-dark': '#0a0a1a'
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'glitch': 'glitch 0.3s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glitch: {
+                            '0%': { transform: 'translate(0)' },
+                            '20%': { transform: 'translate(-2px, 2px)' },
+                            '40%': { transform: 'translate(-2px, -2px)' },
+                            '60%': { transform: 'translate(2px, 2px)' },
+                            '80%': { transform: 'translate(2px, -2px)' },
+                            '100%': { transform: 'translate(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #ffffff;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(145, 25, 28, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.05), transparent 25%);
+            color: #111827;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .circuit-bg {
+            background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><path d="M10 10 L 90 10 M 90 10 L 90 90 M 90 90 L 10 90 M 10 90 L 10 10 M 30 30 L 70 30 M 70 70 L 70 70 M 70 70 L 30 70 M 30 70 L 30 30" stroke="rgba(0,0,0,0.04)" stroke-width="2" fill="none"/></svg>');
+        }
+        .card-3d {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-3d:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px -5px rgba(145, 25, 28, 0.15);
+        }
+        .btn-game {
+            background: linear-gradient(135deg, #91191c, #d32f2f);
+            box-shadow: 0 4px 15px rgba(145, 25, 28, 0.5);
+            transition: all 0.2s;
+        }
+        .btn-game:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(145, 25, 28, 0.7);
+        }
+        .btn-game:active {
+            transform: translateY(1px);
+        }
+        .btn-ai {
+            background: linear-gradient(135deg, #00f0ff, #0080ff);
+            color: #0a0a1a;
+            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.4);
+        }
+        .progress-bar-inner {
+            transition: width 0.3s ease;
+        }
+        .trap-alert {
+            animation: trapFlash 0.5s alternate infinite;
+        }
+        @keyframes trapFlash {
+            from { background-color: rgba(145, 25, 28, 0.02); }
+            to { background-color: rgba(145, 25, 28, 0.08); box-shadow: 0 0 30px rgba(145, 25, 28, 0.2); }
+        }
+        
+        /* Hiệu ứng bay vào cho dữ liệu */
+        .data-fly {
+            animation: flyIn 0.8s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes flyIn {
+            0% { transform: translateY(50px) scale(0.5); opacity: 0; }
+            50% { transform: translateY(-10px) scale(1.1); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans circuit-bg">
+
+    <!-- Khu vực hiển thị nội dung chính -->
+    <main id="game-container" class="flex-grow flex flex-col items-center justify-center p-6 relative w-full h-full overflow-hidden mt-2">
+        <!-- Nội dung sẽ được render qua JS -->
+    </main>
+
+    <!-- Robot AI MC -->
+    <div id="robot-mc" class="fixed bottom-4 left-4 flex items-end gap-4 z-50 transition-all duration-500 transform translate-y-[150%]">
+        <div class="animate-float flex flex-col items-center">
+            <div id="robot-emoji" class="text-7xl bg-white/10 p-4 rounded-full border-4 border-ai-cyan shadow-[0_0_20px_rgba(0,240,255,0.5)]">🤖</div>
+            <div class="bg-ai-cyan text-ai-dark font-black text-xs px-2 py-1 rounded mt-[-10px] z-10">AI-7</div>
+        </div>
+        <div id="robot-bubble" class="bg-white text-gray-900 rounded-2xl rounded-bl-none p-4 max-w-md shadow-xl text-lg font-bold border-l-4 border-main-red">
+            Xin chào! Tớ là AI-7!
+        </div>
+    </div>
+
+    <!-- Nút điều hướng chung cho giáo viên -->
+    <div id="nav-controls" class="fixed bottom-6 right-1/2 transform translate-x-1/2 hidden z-50">
+        <button id="btn-next-step" onclick="nextStep()" class="btn-game px-8 py-3 rounded-full text-white font-black text-xl tracking-wider uppercase flex items-center gap-2">
+            Tiếp tục <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <script>
+        // --- AUDIO ENGINE (Web Audio API) ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playTone(freq, type, duration, vol=0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const sfx = {
+            tick: () => playTone(800, 'sine', 0.1, 0.05),
+            ting: () => playTone(1200, 'triangle', 0.3, 0.1),
+            correct: () => { playTone(523.25, 'sine', 0.1); setTimeout(() => playTone(659.25, 'sine', 0.3), 100); },
+            wrong: () => { playTone(300, 'sawtooth', 0.2); setTimeout(() => playTone(250, 'sawtooth', 0.4), 200); },
+            alert: () => { playTone(400, 'square', 0.3, 0.2); setTimeout(() => playTone(400, 'square', 0.3, 0.2), 400); },
+            woosh: () => playTone(200, 'sine', 0.5, 0.1)
+        };
+
+        // --- GAME STATE ---
+        let currentStep = 0;
+        let timerInterval;
+        const container = document.getElementById('game-container');
+        const robotMC = document.getElementById('robot-mc');
+        const robotBubble = document.getElementById('robot-bubble');
+        const robotEmoji = document.getElementById('robot-emoji');
+        const navControls = document.getElementById('nav-controls');
+        
+        function showRobot(text, emoji = '🤖', autoHide = false) {
+            robotMC.classList.remove('translate-y-[150%]');
+            robotEmoji.innerText = emoji;
+            robotBubble.innerHTML = text;
+            
+            // Highlight text if it contains strong elements
+            if(text.includes('BẪY DỮ LIỆU') || text.includes('THIÊN VỊ')) {
+                robotBubble.classList.replace('border-main-red', 'border-red-600');
+                robotBubble.classList.add('bg-red-50', 'text-red-900');
+            } else {
+                robotBubble.classList.replace('border-red-600', 'border-main-red');
+                robotBubble.classList.remove('bg-red-50', 'text-red-900');
+            }
+
+            if (autoHide) {
+                setTimeout(() => hideRobot(), 4000);
+            }
+        }
+
+        function hideRobot() {
+            robotMC.classList.add('translate-y-[150%]');
+        }
+
+        function showNextBtn() { navControls.classList.remove('hidden'); }
+        function hideNextBtn() { navControls.classList.add('hidden'); }
+
+        // Timer function
+        function runTimer(seconds, onTick, onComplete) {
+            let left = seconds;
+            onTick(left);
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                left--;
+                if(left <= 3 && left > 0) sfx.tick();
+                onTick(left);
+                if (left <= 0) {
+                    clearInterval(timerInterval);
+                    sfx.wrong(); // Buzzer sound when time is up
+                    onComplete();
+                }
+            }, 1000);
+        }
+
+        // --- RENDER FUNCTIONS FOR EACH SCREEN ---
+
+        const screens = [
+            // 0: Khởi đầu
+            () => {
+                hideRobot(); hideNextBtn();
+                container.innerHTML = `
+                    <div class="text-center flex flex-col items-center justify-center space-y-8 animate-float">
+                        <h1 class="text-6xl md:text-8xl font-black text-main-red tracking-tighter drop-shadow-sm">
+                            AI PHÁN ĐOÁN <br><span class="text-gray-900 uppercase">Siêu Tốc</span>
+                        </h1>
+                        <p class="text-2xl text-blue-700 font-bold bg-blue-50 px-6 py-2 rounded-full border border-blue-200">
+                            AI đoán đúng... hay dữ liệu đang đánh lừa AI?
+                        </p>
+                        <button onclick="initAudio(); nextStep()" class="btn-game mt-12 text-3xl px-12 py-5 rounded-full font-black text-white uppercase tracking-widest flex items-center gap-4">
+                            <i class="fas fa-play"></i> BẮT ĐẦU
+                        </button>
+                    </div>
+                `;
+            },
+            
+            // 1: Luật chơi
+            () => {
+                showRobot('Các đội sẽ xem dữ liệu mà tớ được học. Sau đó hãy dự đoán xem tớ sẽ đưa ra kết luận gì!', '🤖');
+                container.innerHTML = `
+                    <div class="bg-white p-8 rounded-3xl border-2 border-main-red max-w-4xl w-full shadow-[0_10px_40px_rgba(145,25,28,0.1)]">
+                        <h2 class="text-4xl font-black text-center text-main-red mb-8">LUẬT CHƠI</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-gray-50 rounded-xl p-6 text-center border-t-4 border-blue-500 card-3d shadow-sm">
+                                <div class="text-5xl mb-4">👀</div>
+                                <h3 class="font-bold text-xl mb-2 text-blue-700">1. QUAN SÁT</h3>
+                                <p class="text-gray-600">Xem thật nhanh dữ liệu AI được cung cấp.</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-6 text-center border-t-4 border-yellow-500 card-3d shadow-sm">
+                                <div class="text-5xl mb-4">🧠</div>
+                                <h3 class="font-bold text-xl mb-2 text-yellow-600">2. SUY LUẬN</h3>
+                                <p class="text-gray-600">Có 5-10 giây để lựa chọn đáp án.</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-xl p-6 text-center border-t-4 border-main-red card-3d shadow-sm">
+                                <div class="text-5xl mb-4">⚡</div>
+                                <h3 class="font-bold text-xl mb-2 text-main-red">3. TRẢ LỜI</h3>
+                                <p class="text-gray-600">Chọn A, B, C hoặc D thật nhanh.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showNextBtn();
+            },
+
+            // 2: Vòng 1 - Nạp dữ liệu
+            () => {
+                hideNextBtn();
+                showRobot('Tớ vừa thu thập được dữ liệu về sở thích của một nhóm học sinh lớp 7.', '🤖');
+                container.innerHTML = `
+                    <div class="text-center w-full max-w-5xl">
+                        <div class="bg-main-red text-white px-6 py-2 rounded-full inline-block font-black text-xl mb-2">VÒNG 1</div>
+                        <h2 class="text-5xl font-black text-gray-900 mb-8">🤖 AI ĐANG HỌC...</h2>
+                        
+                        <div id="data-cards" class="grid grid-cols-3 gap-6 mb-12 h-64">
+                            <!-- Cards inserted by JS -->
+                        </div>
+
+                        <div id="progress-container" class="w-full bg-gray-200 rounded-full h-8 border border-gray-300 hidden relative overflow-hidden">
+                            <div id="progress-bar" class="bg-gradient-to-r from-blue-400 to-blue-600 h-full w-0 progress-bar-inner flex items-center justify-end px-2">
+                                <span class="font-black text-white text-xs">ANALYZING...</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const cards = [
+                    { icon: '🎮', text: 'Chơi game', delay: 500 },
+                    { icon: '🎮', text: 'Chơi game', delay: 1000 },
+                    { icon: '🎮', text: 'Chơi game', delay: 1500 },
+                    { icon: '🎮', text: 'Chơi game', delay: 2000 },
+                    { icon: '📚', text: 'Đọc sách', delay: 2500 },
+                    { icon: '⚽', text: 'Thể thao', delay: 3000 },
+                ];
+
+                const grid = document.getElementById('data-cards');
+                cards.forEach((c, i) => {
+                    setTimeout(() => {
+                        grid.innerHTML += `
+                            <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center data-fly shadow-sm">
+                                <div class="text-5xl mb-2">${c.icon}</div>
+                                <div class="font-bold text-gray-800">${c.text}</div>
+                            </div>
+                        `;
+                        sfx.woosh();
+                        
+                        if (i === cards.length - 1) {
+                            setTimeout(startAnalyzing, 1000);
+                        }
+                    }, c.delay);
+                });
+
+                function startAnalyzing() {
+                    showRobot('Đã học xong dữ liệu!', '✨');
+                    const pContainer = document.getElementById('progress-container');
+                    const pBar = document.getElementById('progress-bar');
+                    pContainer.classList.remove('hidden');
+                    
+                    let p = 0;
+                    const int = setInterval(() => {
+                        p += 20;
+                        pBar.style.width = p + '%';
+                        if(p >= 100) {
+                            clearInterval(int);
+                            setTimeout(nextStep, 1000);
+                        }
+                    }, 500);
+                }
+            },
+
+            // 3: Câu hỏi 1
+            () => {
+                showRobot('Hãy đoán xem tớ sẽ kết luận gì?', '🤔');
+                container.innerHTML = `
+                    <div class="w-full max-w-4xl flex flex-col items-center">
+                        <div class="bg-white border-2 border-blue-400 p-8 rounded-3xl w-full mb-8 text-center relative shadow-md">
+                            <h2 class="text-3xl font-bold mb-2 text-gray-700">Dựa vào dữ liệu vừa học, AI có khả năng kết luận:</h2>
+                            <h1 class="text-4xl font-black text-gray-900">"Học sinh lớp 7 thích hoạt động nào nhất?"</h1>
+                            
+                            <div id="q1-timer" class="absolute -top-10 -right-10 w-24 h-24 bg-main-red rounded-full flex items-center justify-center text-4xl font-black text-white border-4 border-white shadow-xl animate-pulse">5</div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 w-full" id="q1-options">
+                            <button class="bg-white hover:bg-gray-50 border border-gray-300 rounded-xl p-6 text-2xl font-bold text-gray-800 flex items-center gap-4 transition-all shadow-sm">
+                                <span class="bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">A</span> 🎮 Chơi game
+                            </button>
+                            <button class="bg-white hover:bg-gray-50 border border-gray-300 rounded-xl p-6 text-2xl font-bold text-gray-800 flex items-center gap-4 transition-all shadow-sm">
+                                <span class="bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">B</span> 📚 Đọc sách
+                            </button>
+                            <button class="bg-white hover:bg-gray-50 border border-gray-300 rounded-xl p-6 text-2xl font-bold text-gray-800 flex items-center gap-4 transition-all shadow-sm">
+                                <span class="bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">C</span> ⚽ Chơi thể thao
+                            </button>
+                            <button class="bg-white hover:bg-gray-50 border border-gray-300 rounded-xl p-6 text-xl font-bold text-gray-800 flex items-center gap-4 transition-all shadow-sm">
+                                <span class="bg-blue-50 w-12 h-12 rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-blue-100">D</span> ❓ Chưa kết luận được
+                            </button>
+                        </div>
+                        <button id="btn-reveal-1" class="btn-game mt-8 px-8 py-3 rounded-full font-bold text-white hidden" onclick="revealQ1()">XEM ĐÁP ÁN CỦA AI</button>
+                    </div>
+                `;
+
+                const timerEl = document.getElementById('q1-timer');
+                runTimer(5, 
+                    (left) => { timerEl.innerText = left; },
+                    () => {
+                        timerEl.innerHTML = '<i class="fas fa-lock"></i>';
+                        timerEl.classList.replace('bg-main-red', 'bg-gray-600');
+                        timerEl.classList.remove('animate-pulse');
+                        document.getElementById('btn-reveal-1').classList.remove('hidden');
+                        showRobot('Hết giờ! Chốt đáp án nha!', '⏳');
+                    }
+                );
+
+                window.revealQ1 = () => {
+                    const btns = document.getElementById('q1-options').querySelectorAll('button');
+                    btns[0].classList.replace('bg-white', 'bg-green-500');
+                    btns[0].classList.replace('text-gray-800', 'text-white');
+                    btns[0].classList.replace('border-gray-300', 'border-green-600');
+                    btns[0].classList.add('scale-105', 'shadow-[0_0_20px_rgba(34,197,94,0.4)]');
+                    
+                    sfx.correct();
+                    showRobot('Đúng rồi! Với dữ liệu tớ đang có (4/6 bạn chơi game), tớ rất dễ nghĩ rằng học sinh lớp 7 chủ yếu thích chơi game!', '🤓');
+                    document.getElementById('btn-reveal-1').classList.add('hidden');
+                    
+                    showNextBtn();
+                }
+            },
+
+            // 4: Bẫy 1
+            () => {
+                hideNextBtn();
+                sfx.alert();
+                showRobot('Nhưng khoan đã...', '😱');
+                container.innerHTML = `
+                    <div class="trap-alert bg-red-50 rounded-3xl p-12 text-center border-4 border-main-red max-w-4xl w-full">
+                        <h1 class="text-7xl mb-4">🚨</h1>
+                        <h1 class="text-6xl font-black text-main-red mb-8 tracking-wide">KHOAN ĐÃ!</h1>
+                        <h2 class="text-4xl font-bold text-gray-800 mb-12">"Nhưng có phải TẤT CẢ học sinh lớp 7<br>đều thích chơi game không?"</h2>
+                        
+                        <div class="flex justify-center gap-8">
+                            <button onclick="sfx.wrong(); showRobot('E hèm... nghĩ kĩ lại xem!', '🤔')" class="bg-white hover:bg-gray-50 border-2 border-gray-300 rounded-2xl px-12 py-6 text-4xl font-black text-gray-900 w-64 shadow-md">CÓ ✅</button>
+                            <button onclick="handleTrap1()" class="btn-game rounded-2xl px-12 py-6 text-4xl font-black text-white w-64 shadow-md">KHÔNG ❌</button>
+                        </div>
+                    </div>
+                `;
+
+                window.handleTrap1 = () => {
+                    sfx.correct();
+                    showRobot('Chính xác! Có vẻ dữ liệu ban đầu của tớ QUÁ ÍT, chưa đại diện cho tất cả học sinh lớp 7.', '💡');
+                    setTimeout(nextStep, 4000);
+                }
+            },
+
+            // 5: Vòng 2 - Nạp thêm
+            () => {
+                showRobot('Hãy giúp tớ thu thập thêm nhiều dữ liệu khác nhau nhé!', '📥');
+                container.innerHTML = `
+                    <div class="text-center w-full max-w-6xl">
+                        <div class="bg-blue-600 text-white px-6 py-2 rounded-full inline-block font-black text-xl mb-2">VÒNG 2</div>
+                        <h2 class="text-5xl font-black text-gray-900 mb-8">📥 NẠP THÊM DỮ LIỆU...</h2>
+                        
+                        <div id="data-cards-2" class="flex flex-wrap justify-center gap-4 mb-8">
+                            <!-- Cards -->
+                        </div>
+                        <h2 id="db-update" class="text-4xl font-black text-green-600 hidden animate-pulse">DATABASE UPDATED ✅</h2>
+                    </div>
+                `;
+
+                const icons = ['📚', '🎨', '⚽', '🎵', '🚴', '🎮', '🎹', '🏸', '🧩', '📷'];
+                const grid = document.getElementById('data-cards-2');
+                
+                icons.forEach((icon, i) => {
+                    setTimeout(() => {
+                        grid.innerHTML += `<div class="bg-white border border-gray-200 text-gray-800 rounded-xl w-20 h-24 flex items-center justify-center text-4xl data-fly shadow-sm">${icon}</div>`;
+                        sfx.woosh();
+                        
+                        if(i === icons.length - 1) {
+                            setTimeout(() => {
+                                document.getElementById('db-update').classList.remove('hidden');
+                                sfx.ting();
+                                showRobot('Wow! Dữ liệu của tớ đã đa dạng hơn rất nhiều rồi!', '🤩');
+                                showNextBtn();
+                            }, 1000);
+                        }
+                    }, i * 200);
+                });
+            },
+
+            // 6: Câu hỏi 2
+            () => {
+                hideNextBtn();
+                showRobot('Bộ dữ liệu nào tốt hơn cho AI?', '🧠');
+                container.innerHTML = `
+                    <div class="w-full max-w-5xl">
+                        <h2 class="text-3xl font-black text-gray-900 text-center mb-8">Bộ dữ liệu nào giúp AI hiểu học sinh lớp 7 tốt hơn?</h2>
+                        
+                        <div class="grid grid-cols-2 gap-8 mb-8">
+                            <div class="bg-white border border-gray-300 p-6 rounded-2xl text-center shadow-sm">
+                                <h3 class="text-2xl font-bold mb-4 text-gray-600">BỘ DỮ LIỆU A</h3>
+                                <div class="text-4xl mb-4 tracking-widest text-gray-800">🎮🎮🎮🎮📚⚽</div>
+                                <p class="text-gray-500 text-sm">6 học sinh</p>
+                            </div>
+                            <div class="bg-blue-50 border border-blue-300 p-6 rounded-2xl text-center shadow-sm">
+                                <h3 class="text-2xl font-bold mb-4 text-blue-700">BỘ DỮ LIỆU B</h3>
+                                <div class="text-4xl mb-4 flex flex-wrap justify-center gap-2 text-gray-800">🎮📚🎨⚽🎵🚴🎹🏸🧩📷</div>
+                                <p class="text-gray-600 text-sm">10 học sinh - Đa dạng sở thích</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-4 w-full" id="q2-options">
+                            <button onclick="revealQ2(this, false)" class="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl p-4 text-xl font-bold shadow-sm">A. Bộ A</button>
+                            <button onclick="revealQ2(this, true)" class="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl p-4 text-xl font-bold transition-all shadow-sm" id="btn-correct-q2">B. Bộ B</button>
+                            <button onclick="revealQ2(this, false)" class="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl p-4 text-xl font-bold shadow-sm">C. Giống nhau</button>
+                            <button onclick="revealQ2(this, false)" class="bg-white hover:bg-gray-50 border border-gray-200 text-gray-800 rounded-xl p-4 text-xl font-bold shadow-sm">D. Không bộ nào</button>
+                        </div>
+                    </div>
+                `;
+
+                window.revealQ2 = (btn, isCorrect) => {
+                    const allBtns = document.getElementById('q2-options').querySelectorAll('button');
+                    allBtns.forEach(b => b.disabled = true); // Lock answers
+                    
+                    if(isCorrect) {
+                        sfx.correct();
+                        btn.classList.replace('bg-white', 'bg-green-500');
+                        btn.classList.replace('text-gray-800', 'text-white');
+                        btn.classList.add('scale-110', 'shadow-xl');
+                        showRobot('Chính xác! Dữ liệu đa dạng hơn giúp AI có góc nhìn đầy đủ hơn.', '✅');
+                    } else {
+                        sfx.wrong();
+                        btn.classList.replace('bg-white', 'bg-red-500');
+                        btn.classList.replace('text-gray-800', 'text-white');
+                        const correctBtn = document.getElementById('btn-correct-q2');
+                        correctBtn.classList.replace('bg-white', 'bg-green-500');
+                        correctBtn.classList.replace('text-gray-800', 'text-white');
+                        showRobot('Tiếc quá! Bộ B đa dạng hơn mới giúp AI thông minh hơn.', '🥲');
+                    }
+                    showNextBtn();
+                }
+            },
+
+            // 7: Bẫy lớn (Vòng 3)
+            () => {
+                hideNextBtn();
+                showRobot('Tớ vừa thực hiện một cuộc khảo sát MỚI LẮM nha!', '😎');
+                container.innerHTML = `
+                    <div class="w-full max-w-4xl text-center">
+                        <div class="bg-main-red text-white px-6 py-2 rounded-full inline-block font-black text-xl mb-2 animate-pulse-fast">🔥 VÒNG CUỐI</div>
+                        <h2 class="text-4xl font-black mb-8 uppercase text-main-red">AI có đang bị dữ liệu đánh lừa?</h2>
+                        
+                        <div class="bg-white border border-gray-200 rounded-3xl p-10 mb-8 transform hover:scale-105 transition-transform duration-500 shadow-lg">
+                            <div class="flex items-center justify-center gap-8">
+                                <div class="w-48 h-48 rounded-full border-8 border-gray-100 border-t-blue-500 border-r-blue-500 border-b-blue-500 relative flex items-center justify-center bg-gray-50">
+                                    <span class="text-5xl font-black text-blue-600">90%</span>
+                                </div>
+                                <div class="text-left">
+                                    <h3 class="text-4xl font-black text-gray-900 mb-2">Thích chơi Game 🎮</h3>
+                                    <p class="text-xl text-gray-600">Kết luận từ AI sau khảo sát mới nhất</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h2 class="text-3xl font-bold mb-6 text-gray-800">🚨 KẾT LUẬN NÀY CÓ ĐÁNG TIN KHÔNG?</h2>
+                        
+                        <div class="grid grid-cols-2 gap-4 text-left" id="q3-options">
+                            <button onclick="lockQ3()" class="bg-white hover:bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold text-lg text-gray-800 shadow-sm">A. Có, vì 90% là rất cao</button>
+                            <button onclick="lockQ3()" class="bg-white hover:bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold text-lg text-gray-800 shadow-sm">B. Có, AI tính thì không sai</button>
+                            <button onclick="lockQ3(true)" class="bg-white hover:bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold text-lg text-gray-800 shadow-sm" id="btn-correct-q3">C. Chưa chắc, cần xem AI khảo sát ai</button>
+                            <button onclick="lockQ3()" class="bg-white hover:bg-gray-50 border border-gray-200 p-4 rounded-xl font-bold text-lg text-gray-800 shadow-sm">D. Chắc chắn đúng 100%</button>
+                        </div>
+                        
+                        <div id="q3-timer" class="mt-6 text-2xl font-black text-main-red">⏱ 7 GIÂY</div>
+                    </div>
+                `;
+
+                const timerEl = document.getElementById('q3-timer');
+                runTimer(7, 
+                    (left) => { timerEl.innerText = `⏱ ${left} GIÂY`; },
+                    () => {
+                        timerEl.innerText = '🔒 ĐÃ KHÓA!';
+                        document.getElementById('q3-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                        showRevealBtn3();
+                    }
+                );
+
+                window.lockQ3 = (isCorrect) => {
+                    clearInterval(timerInterval);
+                    document.getElementById('q3-timer').innerText = '🔒 ĐÃ KHÓA!';
+                    document.getElementById('q3-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                    showRevealBtn3();
+                }
+                
+                function showRevealBtn3() {
+                    const btnC = document.getElementById('btn-correct-q3');
+                    btnC.classList.replace('bg-white', 'bg-green-500');
+                    btnC.classList.replace('text-gray-800', 'text-white');
+                    btnC.classList.add('animate-pulse');
+                    sfx.ting();
+                    showRobot('Câu C là đáp án an toàn nhất! Nhưng tại sao lại chưa chắc? Hãy xem nguồn dữ liệu!', '🧐');
+                    
+                    setTimeout(() => {
+                        container.innerHTML += `<button onclick="nextStep()" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 btn-game text-4xl font-black px-12 py-6 rounded-full shadow-[0_0_50px_rgba(145,25,28,0.5)] z-50 flex items-center gap-4 animate-bounce text-white"><i class="fas fa-search"></i> XEM NGUỒN DỮ LIỆU</button>`;
+                    }, 2000);
+                }
+            },
+
+            // 8: Lật tẩy bẫy
+            () => {
+                sfx.alert();
+                showRobot('Ôi trời ơi! Tớ chỉ khảo sát các bạn trong CLB Game!!!', '😱');
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col items-center justify-center bg-red-50/90 absolute top-0 left-0 animate-pulse backdrop-blur-sm">
+                        <div class="bg-white p-12 rounded-3xl border-4 border-main-red text-center transform scale-125 shadow-[0_20px_50px_rgba(145,25,28,0.2)]">
+                            <h1 class="text-6xl font-black text-main-red mb-6 uppercase animate-glitch"><i class="fas fa-exclamation-triangle"></i> BẪY DỮ LIỆU!</h1>
+                            <p class="text-3xl text-gray-700 mb-2">Dữ liệu khảo sát:</p>
+                            <h2 class="text-5xl font-black text-gray-900 bg-red-100 px-8 py-4 rounded-xl border border-red-200 inline-block mb-8">
+                                10 học sinh trong <span class="text-main-red">CLB GAME</span> 🎮
+                            </h2>
+                            <p class="text-2xl text-gray-600">Vậy kết luận 90% KHÔNG THỂ đại diện cho toàn bộ lớp 7!</p>
+                        </div>
+                    </div>
+                `;
+                showNextBtn();
+            },
+
+            // 9: Tình huống 1
+            () => {
+                hideNextBtn();
+                showRobot('Thử thách siêu tốc! Xem ai nhanh mắt nhất!', '⚡');
+                renderSituation(
+                    "TÌNH HUỐNG 1", 
+                    "👨‍🔧 Kỹ sư – Nam<br>👨‍🔧 Kỹ sư – Nam<br>👨‍🔧 Kỹ sư – Nam",
+                    "🤖 'Kỹ sư thường là nam.'",
+                    "Dữ liệu này có vấn đề không?",
+                    ["A. Có (Thiếu đa dạng)", "B. Không (Hoàn toàn đúng)"],
+                    0, 
+                    "✅ Dữ liệu thiếu sự đa dạng, tạo ra định kiến giới tính."
+                );
+            },
+            
+            // 10: Tình huống 2
+            () => {
+                hideNextBtn();
+                renderSituation(
+                    "TÌNH HUỐNG 2", 
+                    "AI chỉ được học dữ liệu từ học sinh sống ở THÀNH PHỐ 🏙️",
+                    "AI gợi ý cách học cho học sinh TOÀN QUỐC",
+                    "Điều gì có thể xảy ra?",
+                    ["A. Gợi ý luôn chính xác 100%", "B. Không phù hợp với HS nông thôn/vùng núi"],
+                    1, 
+                    "✅ Dữ liệu chưa đại diện đầy đủ cho các nhóm khác nhau (Thiếu công bằng)."
+                );
+            },
+
+            // 11: Tình huống 3
+            () => {
+                hideNextBtn();
+                renderSituation(
+                    "TÌNH HUỐNG 3", 
+                    "Lịch sử xem: 🎮 Game → 🎮 Game → 🎮 Game",
+                    "AI chỉ tiếp tục gợi ý: 🎮 Game → 🎮 Game",
+                    "Điều này dẫn đến hiện tượng gì?",
+                    ["A. Khám phá được nhiều kiến thức mới", "B. Chỉ nhìn thấy một kiểu nội dung (Bong bóng thông tin)"],
+                    1, 
+                    "✅ Hiện tượng Bong bóng thông tin (Hạn chế góc nhìn)."
+                );
+            },
+
+            // 12: Khái niệm
+            () => {
+                hideNextBtn();
+                showRobot('Tất cả các tình huống trên có điểm chung gì?', '🤔');
+                container.innerHTML = `
+                    <div class="text-center w-full max-w-4xl">
+                        <h2 class="text-4xl font-black text-gray-900 mb-12">🤔 ĐIỂM CHUNG CỦA CÁC TÌNH HUỐNG VỪA RỒI?</h2>
+                        
+                        <div class="flex flex-col gap-4" id="concept-options">
+                            <button onclick="revealConcept(this, false)" class="bg-white border border-gray-300 p-6 rounded-2xl text-2xl font-bold text-gray-800 hover:bg-gray-50 transition shadow-sm">1. AI bị hỏng kỹ thuật</button>
+                            <button onclick="revealConcept(this, true)" class="bg-white border border-gray-300 p-6 rounded-2xl text-2xl font-bold text-gray-800 hover:bg-gray-50 transition shadow-sm" id="btn-correct-concept">2. Dữ liệu AI học chưa đầy đủ hoặc bị lệch</button>
+                            <button onclick="revealConcept(this, false)" class="bg-white border border-gray-300 p-6 rounded-2xl text-2xl font-bold text-gray-800 hover:bg-gray-50 transition shadow-sm">3. AI cố tình trả lời sai</button>
+                        </div>
+                    </div>
+                `;
+
+                window.revealConcept = (btn, isCorrect) => {
+                    const all = document.getElementById('concept-options').querySelectorAll('button');
+                    all.forEach(b => b.disabled = true);
+
+                    if(isCorrect) {
+                        btn.classList.replace('bg-white', 'bg-green-500');
+                        btn.classList.replace('text-gray-800', 'text-white');
+                        sfx.correct();
+                        setTimeout(showBiasDefinition, 1500);
+                    } else {
+                        btn.classList.replace('bg-white', 'bg-red-500');
+                        btn.classList.replace('text-gray-800', 'text-white');
+                        const correctBtn = document.getElementById('btn-correct-concept');
+                        correctBtn.classList.replace('bg-white', 'bg-green-500');
+                        correctBtn.classList.replace('text-gray-800', 'text-white');
+                        sfx.wrong();
+                        setTimeout(showBiasDefinition, 2000);
+                    }
+                }
+
+                function showBiasDefinition() {
+                    sfx.woosh();
+                    showRobot('Khi dữ liệu AI học không đầy đủ hoặc bị lệch, kết quả AI đưa ra cũng có thể bị lệch. Đó gọi là...', '💡');
+                    container.innerHTML = `
+                        <div class="text-center flex flex-col items-center">
+                            <div class="flex items-center gap-4 text-2xl font-bold text-gray-600 mb-8">
+                                <div class="bg-gray-100 p-4 rounded-lg border border-gray-200">Dữ liệu lệch</div>
+                                <div><i class="fas fa-arrow-right"></i></div>
+                                <div class="bg-gray-100 p-4 rounded-lg border border-gray-200">AI học lệch</div>
+                                <div><i class="fas fa-arrow-right"></i></div>
+                                <div class="bg-red-50 text-main-red border border-main-red p-4 rounded-lg">Kết quả lệch</div>
+                            </div>
+                            
+                            <h3 class="text-3xl text-gray-700 mb-2">Hiện tượng đó được gọi là:</h3>
+                            <h1 class="text-7xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-main-red drop-shadow-md mb-4 uppercase animate-pulse-fast tracking-tighter">
+                                THIÊN VỊ DỮ LIỆU
+                            </h1>
+                            <h2 class="text-4xl font-bold text-blue-700 mb-8 tracking-widest">(DATA BIAS)</h2>
+                        </div>
+                    `;
+                    showNextBtn();
+                }
+            },
+
+            // 13: 3 Hậu quả
+            () => {
+                hideNextBtn();
+                showRobot('Thiên vị dữ liệu gây ra 3 vấn đề lớn:', '⚠️');
+                container.innerHTML = `
+                    <div class="w-full max-w-6xl text-center">
+                        <h2 class="text-4xl font-black text-gray-900 mb-12">HẬU QUẢ CỦA THIÊN VỊ DỮ LIỆU</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-white border border-gray-100 border-t-4 border-t-yellow-400 p-8 rounded-2xl card-3d shadow-md">
+                                <div class="text-6xl mb-6">🔍</div>
+                                <h3 class="text-2xl font-black text-yellow-600 mb-4">HẠN CHẾ GÓC NHÌN</h3>
+                                <p class="text-gray-600 text-lg">AI chỉ nhìn thấy một kiểu thông tin (Bong bóng thông tin).</p>
+                            </div>
+                            <div class="bg-white border border-gray-100 border-t-4 border-t-main-red p-8 rounded-2xl card-3d shadow-md">
+                                <div class="text-6xl mb-6">⚠️</div>
+                                <h3 class="text-2xl font-black text-main-red mb-4">SAI LỆCH THÔNG TIN</h3>
+                                <p class="text-gray-600 text-lg">AI phản ánh định kiến (VD: Nghĩ kỹ sư luôn là nam).</p>
+                            </div>
+                            <div class="bg-white border border-gray-100 border-t-4 border-t-blue-400 p-8 rounded-2xl card-3d shadow-md">
+                                <div class="text-6xl mb-6">⚖️</div>
+                                <h3 class="text-2xl font-black text-blue-600 mb-4">THIẾU CÔNG BẰNG</h3>
+                                <p class="text-gray-600 text-lg">AI hoạt động không tốt với một nhóm người nhất định.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showNextBtn();
+            },
+
+            // 14: Giải pháp
+            () => {
+                hideNextBtn();
+                showRobot('Các bạn ơi! Làm thế nào để giúp tớ đưa ra kết quả công bằng hơn?', '🥺');
+                container.innerHTML = `
+                    <div class="w-full max-w-4xl text-center">
+                        <h2 class="text-4xl font-black mb-8 text-blue-700">Làm sao để "CỨU" AI khỏi thiên vị?</h2>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-8" id="sol-options">
+                            <button onclick="revealSol()" class="bg-white hover:bg-gray-50 border border-gray-300 p-6 rounded-xl font-bold text-xl text-gray-800 shadow-sm">A. Thu thập NHIỀU dữ liệu hơn</button>
+                            <button onclick="revealSol()" class="bg-white hover:bg-gray-50 border border-gray-300 p-6 rounded-xl font-bold text-xl text-gray-800 shadow-sm">B. Thu thập ĐA DẠNG nhóm người</button>
+                            <button onclick="revealSol()" class="bg-white hover:bg-gray-50 border border-gray-300 p-6 rounded-xl font-bold text-xl text-gray-800 shadow-sm">C. KIỂM TRA dữ liệu trước khi dùng</button>
+                            <button onclick="revealSol(true)" class="bg-white hover:bg-gray-50 border-2 border-main-red p-6 rounded-xl font-black text-xl text-main-red shadow-sm" id="btn-correct-sol">D. CẢ A, B VÀ C</button>
+                        </div>
+                    </div>
+                `;
+
+                window.revealSol = (isCorrect) => {
+                    document.getElementById('sol-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                    const btn = document.getElementById('btn-correct-sol');
+                    btn.classList.replace('bg-white', 'bg-green-500');
+                    btn.classList.replace('border-main-red', 'border-green-600');
+                    btn.classList.replace('text-main-red', 'text-white');
+                    btn.classList.add('animate-pulse', 'scale-105', 'shadow-xl');
+                    
+                    sfx.correct();
+                    fireConfetti();
+                    showRobot('Quá chuẩn! Dữ liệu TỐT thì AI mới CÔNG BẰNG!', '🤖✨');
+                    
+                    setTimeout(() => {
+                        container.innerHTML = `
+                            <div class="text-center font-black text-3xl space-y-6 flex flex-col items-center animate-float">
+                                <div class="bg-red-100 border border-red-200 text-red-700 px-8 py-4 rounded-xl shadow-sm">DỮ LIỆU ÍT ❌</div>
+                                <div class="text-4xl text-gray-400"><i class="fas fa-arrow-down"></i></div>
+                                <div class="bg-blue-50 border border-blue-200 text-blue-700 px-8 py-4 rounded-xl flex gap-4 shadow-sm">
+                                    <span>📥 THU THẬP THÊM</span> <span>🌈 ĐA DẠNG HƠN</span> <span>🔍 KIỂM TRA LẠI</span>
+                                </div>
+                                <div class="text-4xl text-gray-400"><i class="fas fa-arrow-down"></i></div>
+                                <div class="bg-green-500 text-white px-12 py-6 rounded-2xl text-5xl shadow-[0_10px_30px_rgba(34,197,94,0.4)]">
+                                    AI CÔNG BẰNG HƠN 🤖✨
+                                </div>
+                            </div>
+                        `;
+                        showNextBtn();
+                    }, 2000);
+                }
+            },
+
+            // 15: Chuyển tiếp vào bài học
+            () => {
+                hideNextBtn();
+                showRobot('Sẵn sàng cho bài học hôm nay chưa?', '🚀');
+
+                container.innerHTML = `
+                    <div class="text-center flex flex-col items-center justify-center space-y-8 max-w-4xl opacity-0 animate-[flyIn_1s_ease-out_forwards]">
+                        <h2 class="text-3xl text-gray-600 font-bold mb-4">NẾU AI HỌC TỪ DỮ LIỆU BỊ LỆCH...</h2>
+                        <div class="flex gap-6 text-xl font-bold text-main-red mb-12">
+                            <span>🔍 Hạn chế góc nhìn</span>
+                            <span>•</span>
+                            <span>⚠️ Sai lệch thông tin</span>
+                            <span>•</span>
+                            <span>⚖️ Thiếu công bằng</span>
+                        </div>
+                        
+                        <p class="text-2xl text-blue-700 font-bold">BÀI HỌC HÔM NAY</p>
+                        <h1 class="text-5xl md:text-7xl font-black text-gray-900 leading-tight uppercase tracking-tighter">
+                            THIÊN VỊ DỮ LIỆU <br> 
+                            <span class="text-3xl font-bold text-gray-600 normal-case block mt-4">VÀ GIẢI PHÁP LÀM GIẢM THIÊN VỊ</span>
+                        </h1>
+                        
+                        <button onclick="location.reload()" class="btn-game mt-12 text-2xl px-12 py-4 rounded-full font-black text-white uppercase tracking-widest flex items-center gap-4 hover:scale-105 transition-transform shadow-lg">
+                            🚀 KHÁM PHÁ NGAY BÀI HỌC
+                        </button>
+                    </div>
+                `;
+            }
+        ];
+
+        // --- HELPER RENDERING FUNCTIONS ---
+        function renderSituation(title, data, conclusion, question, options, correctIdx, explanation) {
+            container.innerHTML = `
+                <div class="w-full max-w-4xl text-center">
+                    <div class="bg-blue-600 text-white px-6 py-2 rounded-full inline-block font-black text-xl mb-4 shadow-sm">${title}</div>
+                    
+                    <div class="flex gap-4 mb-8 text-left">
+                        <div class="bg-white border-2 border-gray-200 p-6 rounded-xl w-1/2 shadow-sm">
+                            <h3 class="text-gray-500 font-bold mb-2">📥 Dữ liệu nạp vào:</h3>
+                            <div class="text-xl font-bold text-gray-900">${data}</div>
+                        </div>
+                        <div class="bg-red-50 border-2 border-red-200 p-6 rounded-xl w-1/2 shadow-sm">
+                            <h3 class="text-gray-500 font-bold mb-2">🤖 AI kết luận:</h3>
+                            <div class="text-xl font-bold text-gray-900">${conclusion}</div>
+                        </div>
+                    </div>
+
+                    <h2 class="text-3xl font-black mb-6 text-main-red">${question}</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4" id="sit-options">
+                        ${options.map((opt, i) => `
+                            <button onclick="checkSit(${i}, ${correctIdx}, '${explanation}')" class="bg-white hover:bg-gray-50 border border-gray-200 p-6 rounded-xl font-bold text-2xl text-gray-800 shadow-sm">${opt}</button>
+                        `).join('')}
+                    </div>
+                    <div id="sit-timer" class="mt-4 text-xl text-gray-500 font-bold">⏱ 5 Giây</div>
+                </div>
+            `;
+
+            const timerEl = document.getElementById('sit-timer');
+            runTimer(5, 
+                (left) => { timerEl.innerText = `⏱ ${left} Giây`; },
+                () => {
+                    timerEl.innerText = 'Hết giờ!';
+                    document.getElementById('sit-options').querySelectorAll('button').forEach(b => b.disabled = true);
+                }
+            );
+        }
+
+        window.checkSit = (chosen, correct, explanation) => {
+            clearInterval(timerInterval);
+            const btns = document.getElementById('sit-options').querySelectorAll('button');
+            btns.forEach(b => b.disabled = true);
+
+            if(chosen === correct) {
+                btns[chosen].classList.replace('bg-white', 'bg-green-500');
+                btns[chosen].classList.replace('text-gray-800', 'text-white');
+                sfx.correct();
+                showRobot('Chính xác! ' + explanation, '✅');
+            } else {
+                btns[chosen].classList.replace('bg-white', 'bg-red-500');
+                btns[chosen].classList.replace('text-gray-800', 'text-white');
+                btns[correct].classList.replace('bg-white', 'bg-green-500');
+                btns[correct].classList.replace('text-gray-800', 'text-white');
+                sfx.wrong();
+                showRobot('Chưa đúng! ' + explanation, '⚠️');
+            }
+            
+            showNextBtn();
+        }
+
+        // --- CORE NAVIGATION ---
+        function nextStep() {
+            if (currentStep < screens.length) {
+                sfx.tick();
+                screens[currentStep]();
+                currentStep++;
+            }
+        }
+
+        function fireConfetti() {
+            var duration = 3 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            var interval = setInterval(function() {
+                var timeLeft = animationEnd - Date.now();
+                if (timeLeft <= 0) return clearInterval(interval);
+                var particleCount = 50 * (timeLeft / duration);
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        // Start init
+        window.onload = () => {
+            nextStep(); // Load screen 0
+        };
+    </script>
+</body>
+</html>
