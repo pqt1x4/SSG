@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Bộ nhận diện thương hiệu</title>
+  <style>
+    :root{
+      --blue:#0d539d;
+      --orange:#fdaa45;
+      --bg:#f5f7fb;
+      --card:#fff;
+      --text:#172033;
+      --muted:#6d7686;
+      --border:#dfe5ee;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--text);
+      background:var(--bg);
+    }
+    .wrap{
+      width:min(1100px,calc(100% - 28px));
+      margin:28px auto;
+    }
+    h1{margin:0 0 8px;color:var(--blue)}
+    .sub{margin:0 0 22px;color:var(--muted)}
+    .layout{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:20px;
+      align-items:start;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:20px;
+      box-shadow:0 10px 30px rgba(0,0,0,.06);
+    }
+    .field{margin-bottom:15px}
+    label{display:block;font-weight:700;margin-bottom:6px}
+    textarea,select{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      font:inherit;
+      background:#fff;
+    }
+    textarea{min-height:90px;resize:vertical}
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .colorbox{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:8px 10px;
+    }
+    input[type=color]{width:42px;height:34px;border:0;background:transparent}
+    input[type=range]{width:100%;accent-color:var(--blue)}
+    input[type=file]{width:100%}
+    .small{font-size:12px;color:var(--muted);margin-top:6px}
+    .range{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .range span{min-width:60px;text-align:right;color:var(--muted);font-size:13px}
+    #qrWrap{
+      min-height:360px;
+      display:grid;
+      place-items:center;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:#fff;
+      padding:16px;
+      overflow:hidden;
+    }
+    #qr canvas,#qr svg{max-width:100%;height:auto!important}
+    .buttons{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:14px;
+    }
+    button{
+      border:0;
+      border-radius:12px;
+      padding:11px 14px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .primary{background:var(--blue);color:#fff}
+    .secondary{background:#fff;border:1px solid var(--border)}
+    .reset{grid-column:1/-1;background:#fff;border:1px solid var(--border)}
+    .status{text-align:center;color:var(--muted);font-size:13px;margin-top:10px;min-height:18px}
+    .logo-preview{
+      display:none;
+      align-items:center;
+      gap:10px;
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:8px;
+    }
+    .logo-preview.show{display:flex}
+    .logo-preview img{width:48px;height:48px;object-fit:contain;border:1px solid var(--border);border-radius:8px}
+    .logo-preview span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    @media(max-width:760px){
+      .layout{grid-template-columns:1fr}
+      .grid2{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>QR Bộ nhận diện thương hiệu</h1>
+    <p class="sub">Tạo QR với màu thương hiệu, logo riêng và tải xuống PNG/SVG.</p>
+
+    <div class="layout">
+      <section class="card">
+        <div class="field">
+          <label for="data">Nội dung hoặc đường dẫn</label>
+          <textarea id="data">https://padlet.com/dashboard?mobile_page=Collection&amp;filter=combined_recents</textarea>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="dotsType">Kiểu điểm QR</label>
+            <select id="dotsType">
+              <option value="dots" selected>Chấm tròn</option>
+              <option value="rounded">Bo tròn</option>
+              <option value="classy">Classy</option>
+              <option value="classy-rounded">Classy Rounded</option>
+              <option value="square">Vuông</option>
+              <option value="extra-rounded">Bo tròn lớn</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="error">Mức sửa lỗi</label>
+            <select id="error">
+              <option value="L">L</option>
+              <option value="M">M</option>
+              <option value="Q" selected>Q</option>
+              <option value="H">H</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label>Màu điểm QR</label>
+            <div class="colorbox">
+              <input id="dotsColor" type="color" value="#0d539d">
+              <span id="dotsHex">#0d539d</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Màu mắt QR ngoài</label>
+            <div class="colorbox">
+              <input id="cornerColor" type="color" value="#fdaa45">
+              <span id="cornerHex">#fdaa45</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label>Màu mắt QR trong</label>
+            <div class="colorbox">
+              <input id="cornerDotColor" type="color" value="#0d539d">
+              <span id="cornerDotHex">#0d539d</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Màu nền</label>
+            <div class="colorbox">
+              <input id="bgColor" type="color" value="#ffffff">
+              <span id="bgHex">#ffffff</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label for="size">Kích thước QR</label>
+            <div class="range">
+              <input id="size" type="range" min="200" max="800" step="10" value="300">
+              <span id="sizeValue">300 px</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="margin">Lề QR</label>
+            <div class="range">
+              <input id="margin" type="range" min="0" max="40" step="1" value="0">
+              <span id="marginValue">0 px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logo upload removed: using default Logo.png centered in QR -->
+
+        <div class="field">
+          <label for="logoSize">Kích thước logo</label>
+          <div class="range">
+            <input id="logoSize" type="range" min="0.15" max="0.70" step="0.05" value="0.70">
+            <span id="logoSizeValue">70%</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h2>Xem trước QR</h2>
+        <div id="qrWrap"><div id="qr"></div></div>
+        <div class="buttons">
+          <button id="png" class="primary">Tải PNG</button>
+          <button id="svg" class="secondary">Tải SVG</button>
+          <button id="reset" class="reset">Khôi phục mặc định</button>
+        </div>
+        <div id="status" class="status">Sẵn sàng tạo QR.</div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.9.2/lib/qr-code-styling.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const defaults = {
+      data:'https://padlet.com/dashboard?mobile_page=Collection&filter=combined_recents',
+      dots:'#0d539d',
+      corner:'#fdaa45',
+      cornerDot:'#0d539d',
+      bg:'#ffffff',
+      size:300,
+      margin:0,
+      type:'dots',
+      error:'Q',
+      logoSize:0.70
+    };
+
+    let logoData = 'Logo.png';
+
+    const qr = new QRCodeStyling({
+      width:300,
+      height:300,
+      type:'canvas',
+      data:defaults.data,
+      margin:0,
+      qrOptions:{typeNumber:0,mode:'Byte',errorCorrectionLevel:'Q'},
+      dotsOptions:{type:'dots',color:'#0d539d',roundSize:true},
+      backgroundOptions:{color:'#ffffff'},
+      cornersSquareOptions:{type:'dot',color:'#fdaa45'},
+      cornersDotOptions:{type:'dot',color:'#0d539d'},
+      image: logoData,
+      imageOptions:{hideBackgroundDots:true,imageSize:0.70,margin:0}
+    });
+
+    qr.append($('qr'));
+
+    // Using default logo file (Logo.png) placed alongside this HTML file
+
+    function config(type='canvas'){
+      const size=Number($('size').value);
+      const c={
+        width:size,
+        height:size,
+        type,
+        data:$('data').value.trim() || ' ',
+        margin:Number($('margin').value),
+        qrOptions:{typeNumber:0,mode:'Byte',errorCorrectionLevel:$('error').value},
+        dotsOptions:{type:$('dotsType').value,color:$('dotsColor').value,roundSize:true},
+        backgroundOptions:{color:$('bgColor').value},
+        cornersSquareOptions:{type:'dot',color:$('cornerColor').value},
+        cornersDotOptions:{type:'dot',color:$('cornerDotColor').value},
+        imageOptions:{hideBackgroundDots:true,imageSize:Number($('logoSize').value),margin:0}
+      };
+      if(logoData) c.image=logoData;
+      return c;
+    }
+
+    function labels(){
+      $('dotsHex').textContent=$('dotsColor').value;
+      $('cornerHex').textContent=$('cornerColor').value;
+      $('cornerDotHex').textContent=$('cornerDotColor').value;
+      $('bgHex').textContent=$('bgColor').value;
+      $('sizeValue').textContent=$('size').value+' px';
+      $('marginValue').textContent=$('margin').value+' px';
+      $('logoSizeValue').textContent=Math.round(Number($('logoSize').value)*100)+'%';
+    }
+
+    function update(msg='Đã cập nhật QR.'){
+      labels();
+      qr.update(config());
+      $('status').textContent=msg;
+    }
+
+    ['data','dotsType','error','dotsColor','cornerColor','cornerDotColor','bgColor','size','margin','logoSize']
+      .forEach(id=>{
+        $(id).addEventListener('input',()=>update());
+        $(id).addEventListener('change',()=>update());
+      });
+
+    // Upload/remove logo UI removed; logo stays as Logo.png
+
+    $('png').addEventListener('click',async()=>{
+      await qr.download({name:'qr-thuong-hieu',extension:'png'});
+    });
+
+    $('svg').addEventListener('click',async()=>{
+      const svgQr=new QRCodeStyling(config('svg'));
+      await svgQr.download({name:'qr-thuong-hieu',extension:'svg'});
+    });
+
+    $('reset').addEventListener('click',()=>{
+      $('data').value=defaults.data;
+      $('dotsType').value=defaults.type;
+      $('error').value=defaults.error;
+      $('dotsColor').value=defaults.dots;
+      $('cornerColor').value=defaults.corner;
+      $('cornerDotColor').value=defaults.cornerDot;
+      $('bgColor').value=defaults.bg;
+      $('size').value=defaults.size;
+      $('margin').value=defaults.margin;
+      $('logoSize').value=defaults.logoSize;
+      logoData='Logo.png';
+      qr.update(config());
+      labels();
+      $('status').textContent='Đã khôi phục mặc định.';
+    });
+
+    labels();
+  </script>
+</body>
+</html>
