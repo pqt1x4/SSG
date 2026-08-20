@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Tuyển Đặc Vụ - Có Nhãn hay Không Có Nhãn?</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for Sound -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brandRed: '#91191c',
+                        brandRedLight: '#b02a2d',
+                        brandBlue: '#3b82f6',
+                        brandPurple: '#8b5cf6',
+                        brandCyan: '#06b6d4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            overflow-x: hidden;
+            touch-action: manipulation; /* Prevent double-tap zoom on mobile */
+        }
+        
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .shake-anim { animation: shake 0.3s ease-in-out; }
+        .bounce-anim { animation: bounceIn 0.5s ease-out; }
+
+        /* Custom UI Elements */
+        .btn-primary {
+            background: linear-gradient(135deg, #91191c, #b02a2d);
+            color: white;
+            box-shadow: 0 4px 15px rgba(145, 25, 28, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-primary:active { transform: scale(0.95); box-shadow: 0 2px 5px rgba(145, 25, 28, 0.3); }
+        
+        .btn-option {
+            background: white;
+            border: 2px solid #e2e8f0;
+            color: #334155;
+            transition: all 0.2s;
+        }
+        .btn-option:active { transform: scale(0.98); }
+        
+        .ai-bubble {
+            position: relative;
+            background: white;
+            border: 2px solid #91191c;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .ai-bubble::after {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: 20px;
+            border-width: 10px 10px 10px 0;
+            border-style: solid;
+            border-color: transparent #91191c transparent transparent;
+        }
+
+        /* Sorting Game Elements */
+        .sort-item {
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .sort-item.selected {
+            border-color: #91191c;
+            box-shadow: 0 0 0 4px rgba(145, 25, 28, 0.2);
+            transform: scale(1.1);
+            z-index: 10;
+        }
+        .sort-zone {
+            transition: all 0.3s;
+        }
+        .sort-zone.highlight {
+            background-color: #fee2e2;
+            border-color: #91191c;
+        }
+
+        /* Confetti Canvas */
+        #confetti {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        /* Timer bar */
+        #timer-bar { transition: width 0.1s linear, background-color 0.3s; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start bg-slate-50 relative">
+    
+    <canvas id="confetti"></canvas>
+
+    <header id="game-header" class="w-full max-w-4xl bg-white shadow-sm border-b-2 border-brandRed p-4 flex justify-between items-center sticky top-0 z-50 hidden">
+        <div class="flex items-center gap-2 w-1/2">
+            <i class="fa-solid fa-robot text-brandRed text-2xl"></i>
+            <div class="w-full bg-gray-200 rounded-full h-3">
+                <div id="progress-bar" class="bg-brandRed h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <span id="progress-text" class="text-xs font-bold text-gray-500 min-w-[50px]">0/3</span>
+        </div>
+        <div class="flex items-center gap-2 bg-yellow-100 px-4 py-1 rounded-full border border-yellow-300">
+            <i class="fa-solid fa-star text-yellow-500"></i>
+            <span class="font-black text-lg text-yellow-700">SCORE: <span id="score">0</span></span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-4xl flex-1 p-4 flex flex-col relative pb-20">
+        
+        <section id="screen-boot" class="screen active flex-col items-center justify-center h-full min-h-[70vh] text-center">
+            <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center border-4 border-brandRed shadow-lg mb-6 bounce-anim">
+                <i class="fa-solid fa-robot text-6xl text-brandRed"></i>
+            </div>
+            <h1 class="text-3xl md:text-5xl font-black text-brandRed mb-4 uppercase tracking-tight">AI Tuyển Đặc Vụ</h1>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-700 mb-8">Có Nhãn hay Không Có Nhãn?</h2>
+            
+            <button onclick="startGame()" class="btn-primary text-xl md:text-2xl px-10 py-4 rounded-full font-bold flex items-center gap-3">
+                SẴN SÀNG! <i class="fa-solid fa-play"></i>
+            </button>
+            <p class="mt-6 text-slate-500 text-sm"><i class="fa-solid fa-headphones"></i> Hãy bật âm thanh để trải nghiệm tốt nhất</p>
+        </section>
+
+        <section id="screen-story" class="screen flex-col items-center justify-center h-full min-h-[70vh]">
+            <div class="flex flex-col md:flex-row items-center gap-6 w-full max-w-2xl">
+                <div class="w-32 md:w-48 shrink-0">
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AI7&backgroundColor=91191c" alt="AI-7" class="w-full rounded-2xl shadow-lg border-2 border-brandRed">
+                </div>
+                <div class="ai-bubble p-6 flex-1 text-lg md:text-xl font-medium text-slate-700 leading-relaxed">
+                    <p class="mb-2">"Xin chào các đặc vụ! Tôi là <strong>AI-7</strong>. 👋"</p>
+                    <p class="mb-2">"Hôm nay, trung tâm huấn luyện AI đang gặp một vấn đề lớn. AI của chúng ta vẫn chưa biết cách nhận biết và sắp xếp dữ liệu."</p>
+                    <p>"Các em có sẵn sàng trở thành huấn luyện viên AI không?"</p>
+                </div>
+            </div>
+            <div class="mt-10 flex gap-4">
+                <button onclick="startMission1()" class="btn-primary text-lg px-8 py-3 rounded-xl font-bold flex items-center gap-2">
+                    BẮT ĐẦU NHIỆM VỤ <i class="fa-solid fa-rocket"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="screen-m1-learn" class="screen flex-col items-center w-full">
+            <h2 class="text-2xl font-black text-brandBlue mb-4 w-full text-center uppercase border-b-2 border-brandBlue pb-2"><i class="fa-solid fa-chalkboard-user"></i> Nhiệm vụ 1: AI Có Người Chỉ Đường</h2>
+            
+            <div class="flex flex-row items-start gap-4 w-full mb-6">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AI7&backgroundColor=3b82f6" alt="AI-7" class="w-16 h-16 rounded-xl border border-brandBlue">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl rounded-tl-none text-slate-700 flex-1 text-sm md:text-base">
+                    "Trước tiên, tôi sẽ cho AI xem một số ví dụ <strong>đã có đáp án</strong>. Hãy quan sát thật kỹ nhé!"
+                </div>
+            </div>
+
+            <!-- Example Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-8">
+                <!-- Group Cat -->
+                <div class="bg-white p-4 rounded-xl border-2 border-slate-200 text-center shadow-sm">
+                    <div class="flex justify-center gap-2 mb-3">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Meo/meo1.jpg" alt="Mèo 1" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Meo/meo2.jpg" alt="Mèo 2" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Meo/meo3.jpg" alt="Mèo 3" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                    </div>
+                    <div class="bg-brandBlue text-white font-bold py-1 px-4 rounded-full inline-flex items-center gap-2">
+                        <i class="fa-solid fa-tag"></i> MÈO
+                    </div>
+                </div>
+                <!-- Group Dog -->
+                <div class="bg-white p-4 rounded-xl border-2 border-slate-200 text-center shadow-sm">
+                    <div class="flex justify-center gap-2 mb-3">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Cho/Cho1.jpg" alt="Chó 1" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Cho/Cho2.jpg" alt="Chó 2" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Cho/Cho3.jpg" alt="Chó 3" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                    </div>
+                    <div class="bg-brandBlue text-white font-bold py-1 px-4 rounded-full inline-flex items-center gap-2">
+                        <i class="fa-solid fa-tag"></i> CHÓ
+                    </div>
+                </div>
+                <!-- Group Rabbit -->
+                <div class="bg-white p-4 rounded-xl border-2 border-slate-200 text-center shadow-sm">
+                    <div class="flex justify-center gap-2 mb-3">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Tho/Tho1.jpg" alt="Thỏ 1" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Tho/Tho2.jpg" alt="Thỏ 2" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                        <img src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V1/Tho/Tho3.jpg" alt="Thỏ 3" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm">
+                    </div>
+                    <div class="bg-brandBlue text-white font-bold py-1 px-4 rounded-full inline-flex items-center gap-2">
+                        <i class="fa-solid fa-tag"></i> THỎ
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question -->
+            <div class="w-full max-w-2xl bg-white p-6 rounded-2xl shadow-md border-t-4 border-brandRed">
+                <p class="font-bold text-lg mb-4 text-center">❓ Những hình ảnh này có điểm gì đặc biệt?</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button class="btn-option text-left p-3 rounded-lg" onclick="checkM1Q1(this, false)">A. Tất cả đều giống hệt nhau.</button>
+                    <button class="btn-option text-left p-3 rounded-lg border-b-4" onclick="checkM1Q1(this, true)">B. Mỗi hình ảnh đều có tên đi kèm.</button>
+                    <button class="btn-option text-left p-3 rounded-lg" onclick="checkM1Q1(this, false)">C. Tất cả đều không có thông tin.</button>
+                    <button class="btn-option text-left p-3 rounded-lg" onclick="checkM1Q1(this, false)">D. Máy tính tự đặt tên cho hình ảnh.</button>
+                </div>
+                <div id="m1q1-feedback" class="mt-4 hidden text-center font-bold text-lg rounded p-2"></div>
+            </div>
+            
+            <button id="btn-next-m1-test" onclick="startM1Test()" class="btn-primary mt-6 text-lg px-8 py-3 rounded-xl font-bold hidden items-center gap-2">
+                TIẾP TỤC <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </section>
+
+        <section id="screen-m1-test" class="screen flex-col items-center w-full">
+            <h2 class="text-2xl font-black text-brandBlue mb-4 w-full text-center uppercase border-b-2 border-brandBlue pb-2"><i class="fa-solid fa-gamepad"></i> Kiểm Tra AI</h2>
+            
+            <div class="flex flex-row items-start gap-4 w-full mb-6">
+                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AI7&backgroundColor=3b82f6" alt="AI-7" class="w-16 h-16 rounded-xl border border-brandBlue">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl rounded-tl-none text-slate-700 flex-1 text-sm md:text-base">
+                    "AI đã học xong! Bây giờ hãy kiểm tra xem AI có nhận biết được <strong>hình ảnh mới</strong> dựa vào những nhãn đã học không nhé!"
+                </div>
+            </div>
+
+            <div class="w-full max-w-lg bg-white p-6 rounded-3xl shadow-lg border-2 border-slate-100 flex flex-col items-center">
+                <div class="text-sm font-bold text-slate-400 mb-2">Ảnh <span id="m1-test-count">1</span>/5</div>
+                
+                <img id="m1-test-img" src="https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Meo1.jpg" alt="Ảnh kiểm tra AI" class="w-56 h-56 md:w-64 md:h-64 object-cover rounded-2xl border-2 border-slate-200 shadow-md mb-8 mt-4 bounce-anim">
+                
+                <div class="w-full grid grid-cols-3 gap-3">
+                    <button class="btn-option font-bold py-3 rounded-xl flex flex-col items-center gap-1" onclick="checkM1Test('MÈO')">
+                        <i class="fa-solid fa-tag text-brandBlue"></i> MÈO
+                    </button>
+                    <button class="btn-option font-bold py-3 rounded-xl flex flex-col items-center gap-1" onclick="checkM1Test('CHÓ')">
+                        <i class="fa-solid fa-tag text-brandBlue"></i> CHÓ
+                    </button>
+                    <button class="btn-option font-bold py-3 rounded-xl flex flex-col items-center gap-1" onclick="checkM1Test('THỎ')">
+                        <i class="fa-solid fa-tag text-brandBlue"></i> THỎ
+                    </button>
+                </div>
+                <div id="m1-test-feedback" class="mt-4 font-bold text-lg h-6"></div>
+            </div>
+        </section>
+
+        <section id="screen-m1-summary" class="screen flex-col items-center justify-center w-full min-h-[70vh]">
+            <div class="bg-brandBlue text-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full text-center bounce-anim">
+                <h2 class="text-3xl font-black mb-2 uppercase">Học Có Giám Sát</h2>
+                <div class="bg-blue-900 bg-opacity-30 p-4 rounded-xl mb-6 inline-block">
+                    <p class="font-bold text-xl"><i class="fa-solid fa-tag text-yellow-300"></i> Có nhãn – Có người chỉ đường!</p>
+                </div>
+                
+                <div class="flex flex-col md:flex-row justify-center items-center gap-2 md:gap-4 font-bold text-lg">
+                    <div class="flex flex-col items-center"><i class="fa-solid fa-images text-3xl mb-1"></i>Dữ liệu + Nhãn</div>
+                    <i class="fa-solid fa-arrow-right text-yellow-300 rotate-90 md:rotate-0 my-2 md:my-0 text-2xl"></i>
+                    <div class="flex flex-col items-center"><i class="fa-solid fa-brain text-3xl mb-1"></i>AI Học</div>
+                    <i class="fa-solid fa-arrow-right text-yellow-300 rotate-90 md:rotate-0 my-2 md:my-0 text-2xl"></i>
+                    <div class="flex flex-col items-center"><i class="fa-solid fa-lightbulb text-3xl mb-1 text-yellow-300"></i>Dự đoán nhãn mới</div>
+                </div>
+
+                <p class="mt-6 text-blue-100">AI có thể nhận biết hình ảnh mới vì trước đó AI đã được học từ những hình ảnh <strong>có nhãn (đáp án mẫu)</strong>.</p>
+                
+                <button onclick="startMission2Alarm()" class="bg-white text-brandBlue mt-8 text-lg px-8 py-3 rounded-xl font-black flex items-center justify-center gap-2 mx-auto hover:bg-slate-100 transition-colors">
+                    NHIỆM VỤ TIẾP THEO <i class="fa-solid fa-forward"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="screen-m2-alarm" class="screen flex-col items-center justify-center w-full min-h-[70vh]">
+            <div class="text-center w-full max-w-lg bg-red-100 p-8 rounded-3xl border-4 border-red-500 shadow-2xl shake-anim">
+                <i class="fa-solid fa-triangle-exclamation text-7xl text-red-600 mb-4 animate-pulse"></i>
+                <h2 class="text-4xl font-black text-red-600 mb-2 uppercase">CẢNH BÁO!</h2>
+                <h3 class="text-xl font-bold text-red-900 mb-6">TOÀN BỘ NHÃN DỮ LIỆU ĐÃ BIẾN MẤT!</h3>
+                
+                <div class="flex flex-row items-center gap-4 bg-white p-4 rounded-xl text-left border border-red-200">
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AI7&backgroundColor=ef4444" alt="AI-7" class="w-16 h-16 rounded-full bg-red-100">
+                    <p class="text-slate-700">"Ôi không! Lần này, không ai cho AI biết tên của từng hình ảnh. AI chỉ có thể quan sát và tự tìm xem những hình nào giống nhau!"</p>
+                </div>
+
+                <button onclick="startMission2Drag()" class="bg-red-600 text-white mt-6 text-lg px-8 py-3 rounded-xl font-black flex items-center justify-center gap-2 mx-auto shadow-lg active:scale-95 transition-all">
+                    GIẢI CỨU NGAY <i class="fa-solid fa-screwdriver-wrench"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="screen-m2-sort" class="screen flex-col items-center w-full">
+            <h2 class="text-2xl font-black text-brandPurple mb-4 w-full text-center uppercase border-b-2 border-brandPurple pb-2"><i class="fa-solid fa-object-ungroup"></i> Nhiệm vụ 2: AI Tự Khám Phá</h2>
+            
+            <p class="text-center font-bold text-slate-600 mb-4 bg-purple-100 p-2 rounded-lg w-full">
+                <i class="fa-solid fa-hand-pointer text-brandPurple"></i> Bấm chọn 1 hình bên trên, sau đó bấm vào 1 nhóm bên dưới để xếp!
+            </p>
+
+            <!-- Source Items (Unlabeled Data) -->
+            <div id="unsorted-container" class="w-full bg-white p-4 rounded-2xl shadow-inner border-2 border-slate-200 min-h-[180px] flex flex-wrap justify-center gap-4 mb-6">
+                <!-- Generated by JS -->
+            </div>
+
+            <!-- Drop Zones -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                <div class="sort-zone bg-slate-100 rounded-2xl border-2 border-dashed border-slate-400 p-4 min-h-[220px] flex flex-col" onclick="moveToZone('zone1')">
+                    <div class="text-center font-bold text-slate-500 mb-2 pointer-events-none">NHÓM 1</div>
+                    <div id="zone1" class="flex flex-wrap justify-center gap-3 flex-1"></div>
+                </div>
+                <div class="sort-zone bg-slate-100 rounded-2xl border-2 border-dashed border-slate-400 p-4 min-h-[220px] flex flex-col" onclick="moveToZone('zone2')">
+                    <div class="text-center font-bold text-slate-500 mb-2 pointer-events-none">NHÓM 2</div>
+                    <div id="zone2" class="flex flex-wrap justify-center gap-3 flex-1"></div>
+                </div>
+                <div class="sort-zone bg-slate-100 rounded-2xl border-2 border-dashed border-slate-400 p-4 min-h-[220px] flex flex-col" onclick="moveToZone('zone3')">
+                    <div class="text-center font-bold text-slate-500 mb-2 pointer-events-none">NHÓM 3</div>
+                    <div id="zone3" class="flex flex-wrap justify-center gap-3 flex-1"></div>
+                </div>
+            </div>
+
+            <button id="btn-check-sort" onclick="checkSorting()" class="btn-primary mt-6 text-lg px-8 py-3 rounded-xl font-bold flex items-center gap-2 opacity-50 cursor-not-allowed" disabled>
+                KIỂM TRA <i class="fa-solid fa-check-double"></i>
+            </button>
+            <div id="sort-feedback" class="mt-4 font-bold text-lg text-center h-6"></div>
+        </section>
+
+        <section id="screen-m2-question" class="screen flex-col items-center justify-center w-full min-h-[70vh]">
+            <div class="w-full max-w-2xl bg-white p-6 md:p-8 rounded-3xl shadow-xl border-t-8 border-brandPurple">
+                <div class="flex justify-center mb-4 text-6xl">🎉</div>
+                <h3 class="text-2xl font-black text-center mb-6 text-slate-800">Tuyệt vời! Em đã gom nhóm dựa trên sự giống nhau.</h3>
+                
+                <div class="bg-purple-50 p-4 rounded-xl border border-purple-200 mb-6 flex gap-4 items-start">
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=AI7&backgroundColor=8b5cf6" alt="AI-7" class="w-16 h-16 rounded-xl shrink-0">
+                    <p class="font-bold text-lg text-slate-700">"Nhưng... sau khi tự chia xong, AI có biết Nhóm 1 tên là 'Mèo' không?"</p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3">
+                    <button class="btn-option text-left p-4 rounded-xl text-md font-medium" onclick="checkM2Q(this, false)">A. Có, chắc chắn là Mèo.</button>
+                    <button class="btn-option text-left p-4 rounded-xl text-md font-medium" onclick="checkM2Q(this, false)">B. Có, AI luôn biết tên mọi thứ.</button>
+                    <button class="btn-option text-left p-4 rounded-xl text-md font-medium border-l-4" onclick="checkM2Q(this, true)">C. Không, vì chưa ai cho AI biết tên nhóm (nhãn).</button>
+                    <button class="btn-option text-left p-4 rounded-xl text-md font-medium" onclick="checkM2Q(this, false)">D. Không, vì AI không nhìn thấy hình ảnh.</button>
+                </div>
+                <div id="m2q-feedback" class="mt-4 text-center font-bold text-lg rounded p-2 hidden"></div>
+                
+                <div class="flex justify-center mt-6">
+                    <button id="btn-next-m2-summary" onclick="startM2Summary()" class="btn-primary text-lg px-8 py-3 rounded-xl font-bold hidden items-center gap-2">
+                        XEM KẾT LUẬN <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="screen-m2-summary" class="screen flex-col items-center justify-center w-full min-h-[70vh]">
+            <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Supervised Compare -->
+                <div class="bg-white rounded-3xl shadow-lg border-t-8 border-brandBlue p-6 flex flex-col h-full opacity-70">
+                    <h3 class="text-xl font-black text-brandBlue text-center mb-4 uppercase">Học Có Giám Sát</h3>
+                    <div class="flex justify-center text-4xl mb-4">👩‍🏫 <i class="fa-solid fa-arrow-right text-slate-300 mx-2 text-2xl mt-2"></i> 🤖</div>
+                    <div class="space-y-2 text-slate-700 flex-1 font-medium">
+                        <p><i class="fa-solid fa-check text-green-500 w-6"></i> <strong>Có nhãn</strong> (tên).</p>
+                        <p><i class="fa-solid fa-check text-green-500 w-6"></i> Có đáp án mẫu để học.</p>
+                        <p><i class="fa-solid fa-crosshairs text-brandBlue w-6"></i> AI học để dự đoán.</p>
+                    </div>
+                </div>
+
+                <!-- Unsupervised Compare -->
+                <div class="bg-brandPurple text-white rounded-3xl shadow-xl border-4 border-purple-300 p-6 flex flex-col h-full bounce-anim transform md:scale-105 z-10">
+                    <h3 class="text-2xl font-black text-center mb-4 uppercase text-yellow-300">Học Không Giám Sát</h3>
+                    <div class="flex justify-center text-4xl mb-4">🤖 🔍 📊</div>
+                    <div class="bg-purple-900 bg-opacity-40 p-3 rounded-xl mb-4 text-center font-bold">
+                        <i class="fa-solid fa-box-open text-yellow-300"></i> Không nhãn – AI tự tìm nhóm!
+                    </div>
+                    <div class="space-y-3 text-purple-50 flex-1 font-medium text-lg">
+                        <p><i class="fa-solid fa-xmark text-red-300 w-6"></i> <strong>Không có nhãn</strong> (không tên).</p>
+                        <p><i class="fa-solid fa-xmark text-red-300 w-6"></i> Không có đáp án mẫu.</p>
+                        <p><i class="fa-solid fa-magnifying-glass text-yellow-300 w-6"></i> AI tự tìm điểm giống nhau và tự chia nhóm.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="startMission3Intro()" class="btn-primary mt-10 text-xl px-10 py-4 rounded-full font-black flex items-center gap-3 shadow-xl hover:scale-105 transition-transform">
+                VÀO NHIỆM VỤ CUỐI <i class="fa-solid fa-skull"></i>
+            </button>
+        </section>
+
+        <section id="screen-m3-intro" class="screen flex-col items-center justify-center w-full min-h-[70vh]">
+            <div class="text-center">
+                <i class="fa-solid fa-trophy text-6xl text-yellow-500 mb-4 drop-shadow-md"></i>
+                <h2 class="text-3xl md:text-5xl font-black text-brandRed mb-4 uppercase">Nhiệm Vụ Cuối: AI Nào Đây?</h2>
+                <div class="bg-white p-6 rounded-2xl shadow-md border-2 border-brandRed max-w-lg mx-auto mb-8 text-left">
+                    <p class="font-bold text-lg mb-2"><i class="fa-solid fa-clipboard-list text-brandRed"></i> Luật chơi:</p>
+                    <ul class="list-disc pl-5 space-y-2 text-slate-700 font-medium">
+                        <li>Đọc tình huống và chọn đúng kiểu học của AI.</li>
+                        <li>Có thanh thời gian. Trả lời nhanh sẽ được <strong>+5 điểm thưởng</strong>.</li>
+                        <li>Trả lời đúng được <strong>+10 điểm</strong>.</li>
+                    </ul>
+                </div>
+                <button onclick="startMission3Play()" class="btn-primary text-xl px-10 py-4 rounded-full font-black inline-flex items-center justify-center gap-2 text-center">
+                    BẮT ĐẦU THỬ THÁCH <i class="fa-solid fa-stopwatch"></i>
+                </button>
+            </div>
+        </section>
+
+        <section id="screen-m3-play" class="screen flex-col items-center w-full">
+            <div class="w-full flex justify-between items-center mb-2 px-2 text-sm font-bold text-slate-500 uppercase tracking-wider">
+                <span>Câu <span id="quiz-current">1</span>/8</span>
+                <span><i class="fa-regular fa-clock"></i> <span id="quiz-time-text">7</span>s</span>
+            </div>
+            <!-- Timer Bar -->
+            <div class="w-full bg-slate-200 h-2 rounded-full mb-6 overflow-hidden">
+                <div id="timer-bar" class="bg-green-500 h-full w-full"></div>
+            </div>
+
+            <!-- Question Card -->
+            <div class="w-full max-w-2xl bg-white p-6 md:p-10 rounded-3xl shadow-lg border-2 border-slate-100 flex flex-col items-center mb-6 min-h-[200px] justify-center text-center">
+                <p id="quiz-question" class="text-xl md:text-2xl font-bold text-slate-800 leading-relaxed"></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button class="bg-brandBlue text-white py-6 rounded-2xl font-black text-xl md:text-2xl shadow-md active:scale-95 transition-all flex flex-col items-center gap-2" onclick="answerQuiz('supervised')">
+                    <i class="fa-solid fa-tags text-3xl"></i>
+                    HỌC CÓ GIÁM SÁT
+                </button>
+                <button class="bg-brandPurple text-white py-6 rounded-2xl font-black text-xl md:text-2xl shadow-md active:scale-95 transition-all flex flex-col items-center gap-2" onclick="answerQuiz('unsupervised')">
+                    <i class="fa-solid fa-cubes-stacked text-3xl"></i>
+                    HỌC KHÔNG GIÁM SÁT
+                </button>
+            </div>
+            
+            <!-- Result Overlay for Quiz -->
+            <div id="quiz-feedback-overlay" class="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50 hidden">
+                <div id="quiz-feedback-icon" class="text-8xl mb-4">✅</div>
+                <div id="quiz-feedback-text" class="text-3xl font-black text-white mb-2">Chính xác!</div>
+                <div id="quiz-feedback-points" class="text-xl font-bold text-yellow-300 mb-6">+10 Điểm</div>
+                <div id="quiz-feedback-explain" class="max-w-md text-center text-white bg-slate-800 p-4 rounded-xl border border-slate-600 mb-6 font-medium"></div>
+                <button id="btn-quiz-next" class="btn-primary px-8 py-3 rounded-full font-bold text-lg" onclick="nextQuiz()">CÂU TIẾP THEO</button>
+            </div>
+        </section>
+
+        <section id="screen-final" class="screen flex-col items-center w-full pt-4">
+            <h1 class="text-3xl md:text-5xl font-black text-brandRed mb-2 uppercase text-center w-full">Nhiệm Vụ Hoàn Thành!</h1>
+            
+            <div class="flex justify-center mb-6">
+                <div class="bg-yellow-100 border-4 border-yellow-400 p-6 rounded-full w-40 h-40 flex flex-col items-center justify-center shadow-xl bounce-anim relative">
+                    <div class="absolute -top-4 bg-yellow-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest">TỔNG ĐIỂM</div>
+                    <span class="text-5xl font-black text-yellow-700" id="final-score">0</span>
+                    <i class="fa-solid fa-star text-yellow-500 text-2xl mt-1"></i>
+                </div>
+            </div>
+
+            <!-- Rank Card -->
+            <div class="w-full max-w-md bg-white p-6 rounded-3xl shadow-lg border-2 border-slate-200 text-center mb-8">
+                <div id="rank-icon" class="text-5xl mb-2">🏆</div>
+                <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Danh hiệu đạt được</h2>
+                <h3 id="rank-name" class="text-2xl font-black text-brandRed mb-3">Siêu Đặc Vụ AI</h3>
+                <p id="rank-desc" class="text-slate-600 font-medium">Bạn đã giúp AI hiểu được hai cách học quan trọng!</p>
+            </div>
+
+            <!-- Knowledge Card -->
+            <div class="w-full max-w-2xl bg-slate-800 p-1 md:p-2 rounded-3xl shadow-xl mb-10">
+                <div class="border-2 border-slate-600 rounded-2xl p-6 text-center">
+                    <h3 class="text-2xl font-black text-white mb-6 uppercase flex items-center justify-center gap-2"><i class="fa-solid fa-book-open text-brandCyan"></i> Bí Kíp Huấn Luyện AI</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        <div class="bg-slate-700 p-4 rounded-xl border border-slate-500">
+                            <h4 class="font-black text-brandBlue text-lg mb-2"><i class="fa-solid fa-tag"></i> CÓ NHÃN</h4>
+                            <p class="text-white font-medium text-sm">Có người chỉ đường. AI học từ các ví dụ có sẵn đáp án để dự đoán.</p>
+                            <div class="mt-2 text-xs font-bold bg-blue-900 text-blue-200 inline-block px-2 py-1 rounded">HỌC CÓ GIÁM SÁT</div>
+                        </div>
+                        <div class="bg-slate-700 p-4 rounded-xl border border-slate-500">
+                            <h4 class="font-black text-brandPurple text-lg mb-2"><i class="fa-solid fa-box-open"></i> KHÔNG NHÃN</h4>
+                            <p class="text-white font-medium text-sm">AI tự khám phá. Tự quan sát và tìm điểm giống nhau để gom nhóm.</p>
+                            <div class="mt-2 text-xs font-bold bg-purple-900 text-purple-200 inline-block px-2 py-1 rounded">HỌC KHÔNG GIÁM SÁT</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-brandRed text-white py-3 px-4 rounded-xl font-black text-lg shadow-inner">
+                        DỮ LIỆU LÀ NGUYÊN LIỆU ĐỂ AI HỌC!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reflection Question -->
+            <div class="w-full max-w-2xl bg-yellow-50 border-2 border-yellow-300 p-6 rounded-2xl mb-8 flex flex-col md:flex-row gap-4 items-center">
+                <i class="fa-regular fa-face-thinking text-5xl text-yellow-600"></i>
+                <div>
+                    <h4 class="font-black text-yellow-800 mb-2">THỬ NGHĨ XEM...</h4>
+                    <p class="text-slate-700 font-medium italic">"Nếu em muốn dạy AI nhận biết 3 loại đồ uống: sữa, nước cam và trà xanh, em sẽ chuẩn bị dữ liệu như thế nào để AI học tốt nhất?"</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="location.reload()" class="bg-white text-slate-700 border-2 border-slate-300 px-6 py-3 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+                    <i class="fa-solid fa-rotate-right"></i> CHƠI LẠI
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Global State ---
+        const state = {
+            score: 0,
+            progress: 0,
+            m1TestsCompleted: 0,
+            m2SelectedItem: null,
+            quizIndex: 0,
+            quizTimer: null,
+            quizTimeLeft: 7,
+            quizFastBonusActive: true
+        };
+
+        const screens = [
+            'screen-boot', 'screen-story', 'screen-m1-learn', 'screen-m1-test', 'screen-m1-summary',
+            'screen-m2-alarm', 'screen-m2-sort', 'screen-m2-question', 'screen-m2-summary',
+            'screen-m3-intro', 'screen-m3-play', 'screen-final'
+        ];
+
+        // --- Sound Engine (Tone.js) ---
+        let synth, membrane, amSynth;
+        let soundEnabled = false;
+
+        function initSound() {
+            if (soundEnabled) return;
+            Tone.start();
+            
+            // Ting sound (Correct)
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 1 }
+            }).toDestination();
+            synth.volume.value = -10;
+
+            // Boop sound (Wrong)
+            membrane = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 2,
+                oscillator: { type: "square" },
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+            }).toDestination();
+            membrane.volume.value = -15;
+
+            // Alarm/Whoosh sound
+            amSynth = new Tone.AMSynth({
+                harmonicity: 3,
+                detune: 0,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.1, decay: 0.2, sustain: 1, release: 0.5 },
+                modulation: { type: "square" },
+                modulationEnvelope: { attack: 0.5, decay: 0, sustain: 1, release: 0.5 }
+            }).toDestination();
+            amSynth.volume.value = -12;
+
+            soundEnabled = true;
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            if (Tone.context.state !== 'running') Tone.context.resume();
+            const now = Tone.now();
+            
+            switch(type) {
+                case 'ting':
+                    synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                    break;
+                case 'boop':
+                    membrane.triggerAttackRelease("G2", "8n", now);
+                    break;
+                case 'whoosh':
+                    amSynth.triggerAttackRelease("C4", "16n", now);
+                    setTimeout(() => amSynth.triggerAttackRelease("E4", "8n", Tone.now()), 100);
+                    break;
+                case 'alarm':
+                    membrane.triggerAttackRelease("C3", "8n", now);
+                    membrane.triggerAttackRelease("C3", "8n", now + 0.3);
+                    membrane.triggerAttackRelease("C3", "8n", now + 0.6);
+                    break;
+                case 'win':
+                    synth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n", now);
+                    break;
+            }
+        }
+
+        // --- Core Functions ---
+        function showScreen(id) {
+            screens.forEach(s => document.getElementById(s).classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            window.scrollTo(0,0);
+            if(id !== 'screen-boot') document.getElementById('game-header').classList.remove('hidden');
+        }
+
+        function updateScore(points) {
+            state.score += points;
+            const scoreEl = document.getElementById('score');
+            scoreEl.innerText = state.score;
+            scoreEl.classList.add('text-brandRed', 'scale-150', 'inline-block', 'transition-all');
+            setTimeout(() => {
+                scoreEl.classList.remove('text-brandRed', 'scale-150');
+            }, 300);
+        }
+
+        function updateProgress(step) {
+            const pct = (step / 3) * 100;
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').innerText = `${step}/3`;
+        }
+
+        // --- Flow Controllers ---
+        function startGame() {
+            initSound();
+            playSound('whoosh');
+            showScreen('screen-story');
+        }
+
+        function startMission1() {
+            playSound('whoosh');
+            showScreen('screen-m1-learn');
+            updateProgress(0); // Start of M1
+        }
+
+        function checkM1Q1(btn, isCorrect) {
+            const btns = btn.parentElement.querySelectorAll('button');
+            btns.forEach(b => b.classList.add('opacity-50', 'pointer-events-none'));
+            btn.classList.remove('opacity-50');
+            
+            const feedback = document.getElementById('m1q1-feedback');
+            feedback.classList.remove('hidden');
+            
+            if(isCorrect) {
+                playSound('ting');
+                btn.classList.add('bg-green-100', 'border-green-500');
+                feedback.innerHTML = "✅ Chính xác! Những cái tên Mèo – Chó – Thỏ chính là nhãn.";
+                feedback.classList.add('bg-green-100', 'text-green-700');
+                document.getElementById('btn-next-m1-test').classList.remove('hidden');
+                document.getElementById('btn-next-m1-test').classList.add('flex');
+            } else {
+                playSound('boop');
+                btn.classList.add('bg-red-100', 'border-red-500');
+                feedback.innerHTML = "❌ Chưa đúng. Hãy nhìn dòng chữ nền xanh dưới mỗi hình nhé!";
+                feedback.classList.add('bg-red-100', 'text-red-700');
+                setTimeout(() => {
+                    btns.forEach(b => {
+                        b.classList.remove('opacity-50', 'pointer-events-none', 'bg-red-100', 'border-red-500');
+                    });
+                    feedback.classList.add('hidden');
+                    feedback.classList.remove('bg-red-100', 'text-red-700');
+                }, 2000);
+            }
+        }
+
+        const m1TestImages = [
+            { img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Meo1.jpg', alt: 'Mèo kiểm tra 1', type: 'MÈO', hint: 'Chú ý tai và dáng vẻ, nó giống nhóm nào đã học?' },
+            { img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Cho1.jpg', alt: 'Chó kiểm tra 1', type: 'CHÓ', hint: 'Khuôn mặt này quen thuộc trong nhóm nào?' },
+            { img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Tho.jpg', alt: 'Thỏ kiểm tra', type: 'THỎ', hint: 'Đôi tai dài này thuộc về nhóm nào?' },
+            { img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Meo2.jpg', alt: 'Mèo kiểm tra 2', type: 'MÈO', hint: 'Tuy màu sắc khác đi nhưng khuôn mặt này là của...' },
+            { img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V2/Test_Cho2.jpg', alt: 'Chó kiểm tra 2', type: 'CHÓ', hint: 'Hình dáng lông khác đi, nhưng vẫn thuộc loài...' }
+        ];
+
+        function startM1Test() {
+            playSound('whoosh');
+            state.m1TestsCompleted = 0;
+            updateM1TestUI();
+            showScreen('screen-m1-test');
+        }
+
+        function updateM1TestUI() {
+            document.getElementById('m1-test-count').innerText = state.m1TestsCompleted + 1;
+            const imgEl = document.getElementById('m1-test-img');
+            const currentImage = m1TestImages[state.m1TestsCompleted];
+            imgEl.src = currentImage.img;
+            imgEl.alt = currentImage.alt;
+            // Retrigger animation
+            imgEl.classList.remove('bounce-anim');
+            void imgEl.offsetWidth; // trigger reflow
+            imgEl.classList.add('bounce-anim');
+            document.getElementById('m1-test-feedback').innerHTML = "";
+        }
+
+        function checkM1Test(selectedType) {
+            const currentData = m1TestImages[state.m1TestsCompleted];
+            const feedback = document.getElementById('m1-test-feedback');
+            
+            if(selectedType === currentData.type) {
+                playSound('ting');
+                updateScore(10);
+                feedback.innerHTML = `<span class="text-green-600">✅ Chính xác! +10 điểm</span>`;
+                
+                state.m1TestsCompleted++;
+                if(state.m1TestsCompleted < m1TestImages.length) {
+                    setTimeout(updateM1TestUI, 1000);
+                } else {
+                    setTimeout(() => {
+                        playSound('whoosh');
+                        updateProgress(1); // Finish M1
+                        showScreen('screen-m1-summary');
+                    }, 1000);
+                }
+            } else {
+                playSound('boop');
+                document.getElementById('screen-m1-test').querySelector('.bg-white').classList.add('shake-anim');
+                setTimeout(() => document.getElementById('screen-m1-test').querySelector('.bg-white').classList.remove('shake-anim'), 300);
+                feedback.innerHTML = `<span class="text-red-500">❌ Chưa đúng. ${currentData.hint}</span>`;
+            }
+        }
+
+        function startMission2Alarm() {
+            playSound('alarm');
+            showScreen('screen-m2-alarm');
+        }
+
+        const m2Items = [
+            { id: 'i1', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Cho1.jpg', alt: 'Chó 1', type: 'dog' },
+            { id: 'i2', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Cho2.jpg', alt: 'Chó 2', type: 'dog' },
+            { id: 'i3', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Cho3.jpg', alt: 'Chó 3', type: 'dog' },
+            { id: 'i4', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Cho4.jpg', alt: 'Chó 4', type: 'dog' },
+            { id: 'i5', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Meo1.jpg', alt: 'Mèo 1', type: 'cat' },
+            { id: 'i6', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Meo2.jpg', alt: 'Mèo 2', type: 'cat' },
+            { id: 'i7', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Meo3.jpg', alt: 'Mèo 3', type: 'cat' },
+            { id: 'i8', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Meo4.jpg', alt: 'Mèo 4', type: 'cat' },
+            { id: 'i9', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Tho1.jpg', alt: 'Thỏ 1', type: 'rabbit' },
+            { id: 'i10', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Tho2.jpg', alt: 'Thỏ 2', type: 'rabbit' },
+            { id: 'i11', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Tho3.jpg', alt: 'Thỏ 3', type: 'rabbit' },
+            { id: 'i12', img: 'https://raw.githubusercontent.com/pqt1x4/SSG/main/Bai3/V3/Tho4.jpg', alt: 'Thỏ 4', type: 'rabbit' }
+        ];
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function startMission2Drag() {
+            playSound('whoosh');
+            showScreen('screen-m2-sort');
+            const container = document.getElementById('unsorted-container');
+            container.innerHTML = '';
+            document.getElementById('zone1').innerHTML = '';
+            document.getElementById('zone2').innerHTML = '';
+            document.getElementById('zone3').innerHTML = '';
+            document.getElementById('btn-check-sort').disabled = true;
+            document.getElementById('btn-check-sort').classList.add('opacity-50');
+            state.m2SelectedItem = null;
+
+            shuffle([...m2Items]).forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'sort-item w-24 h-24 bg-slate-50 border-2 border-slate-200 rounded-xl p-1 shadow-sm overflow-hidden';
+                const img = document.createElement('img');
+                img.src = item.img;
+                img.alt = item.alt;
+                img.className = 'w-full h-full object-cover rounded-lg pointer-events-none';
+                el.appendChild(img);
+                el.dataset.type = item.type;
+                el.dataset.id = item.id;
+                el.onclick = (e) => {
+                    e.stopPropagation();
+                    selectItemForSort(e.currentTarget);
+                };
+                container.appendChild(el);
+            });
+        }
+
+        function selectItemForSort(element) {
+            // Deselect previous
+            document.querySelectorAll('.sort-item').forEach(el => el.classList.remove('selected'));
+            
+            // Toggle logic
+            if (state.m2SelectedItem === element) {
+                state.m2SelectedItem = null;
+                document.querySelectorAll('.sort-zone').forEach(z => z.classList.remove('highlight'));
+            } else {
+                element.classList.add('selected');
+                state.m2SelectedItem = element;
+                document.querySelectorAll('.sort-zone').forEach(z => z.classList.add('highlight'));
+                playSound('ting'); // subtle click
+            }
+        }
+
+        function moveToZone(zoneId) {
+            if (!state.m2SelectedItem) return;
+            
+            const targetZone = document.getElementById(zoneId);
+            targetZone.appendChild(state.m2SelectedItem);
+            
+            // Clean up states
+            state.m2SelectedItem.classList.remove('selected');
+            state.m2SelectedItem = null;
+            document.querySelectorAll('.sort-zone').forEach(z => z.classList.remove('highlight'));
+            playSound('whoosh'); // move sound
+
+            checkAllSorted();
+        }
+
+        // Allow moving back to unsorted
+        document.getElementById('unsorted-container').onclick = function() {
+            if(state.m2SelectedItem) {
+                this.appendChild(state.m2SelectedItem);
+                state.m2SelectedItem.classList.remove('selected');
+                state.m2SelectedItem = null;
+                document.querySelectorAll('.sort-zone').forEach(z => z.classList.remove('highlight'));
+                checkAllSorted();
+            }
+        };
+
+        function checkAllSorted() {
+            const unsortedCount = document.getElementById('unsorted-container').children.length;
+            const btn = document.getElementById('btn-check-sort');
+            if (unsortedCount === 0) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                btn.classList.add('animate-pulse');
+            } else {
+                btn.disabled = true;
+                btn.classList.add('opacity-50');
+                btn.classList.remove('animate-pulse');
+            }
+        }
+
+        function checkSorting() {
+            const checkZone = (zoneId) => {
+                const items = document.getElementById(zoneId).children;
+                if(items.length === 0) return false;
+                const firstType = items[0].dataset.type;
+                for(let i=1; i<items.length; i++) {
+                    if(items[i].dataset.type !== firstType) return false;
+                }
+                return true;
+            };
+
+            const z1 = checkZone('zone1');
+            const z2 = checkZone('zone2');
+            const z3 = checkZone('zone3');
+
+            const feedback = document.getElementById('sort-feedback');
+            if(z1 && z2 && z3) {
+                playSound('win');
+                updateScore(20);
+                feedback.innerHTML = '<span class="text-green-600">🎉 Tuyệt vời! Gom nhóm chính xác! +20 điểm</span>';
+                document.getElementById('btn-check-sort').style.display = 'none';
+                setTimeout(() => {
+                    showScreen('screen-m2-question');
+                }, 2000);
+            } else {
+                playSound('boop');
+                feedback.innerHTML = '<span class="text-red-600">❌ Có hình ảnh bị lạc nhóm rồi! Hãy kiểm tra lại đặc điểm nhé.</span>';
+                setTimeout(() => feedback.innerHTML='', 3000);
+            }
+        }
+
+        function checkM2Q(btn, isCorrect) {
+            const btns = btn.parentElement.querySelectorAll('button');
+            btns.forEach(b => b.classList.add('opacity-50', 'pointer-events-none'));
+            btn.classList.remove('opacity-50');
+            
+            const feedback = document.getElementById('m2q-feedback');
+            feedback.classList.remove('hidden');
+            
+            if(isCorrect) {
+                playSound('ting');
+                btn.classList.add('bg-green-100', 'border-green-500');
+                feedback.innerHTML = "✅ Chính xác! Không có nhãn, AI không biết tên các nhóm là gì.";
+                feedback.classList.add('bg-green-100', 'text-green-700');
+                document.getElementById('btn-next-m2-summary').classList.remove('hidden');
+                document.getElementById('btn-next-m2-summary').classList.add('flex');
+            } else {
+                playSound('boop');
+                btn.classList.add('bg-red-100', 'border-red-500');
+                feedback.innerHTML = "❌ Chưa đúng. Suy nghĩ lại xem lúc nãy dữ liệu có bị mất tên không?";
+                feedback.classList.add('bg-red-100', 'text-red-700');
+                setTimeout(() => {
+                    btns.forEach(b => {
+                        b.classList.remove('opacity-50', 'pointer-events-none', 'bg-red-100', 'border-red-500');
+                    });
+                    feedback.classList.add('hidden');
+                    feedback.classList.remove('bg-red-100', 'text-red-700');
+                }, 2500);
+            }
+        }
+
+        function startM2Summary() {
+            playSound('whoosh');
+            updateProgress(2); // Finish M2
+            showScreen('screen-m2-summary');
+        }
+
+        const quizData = [
+            { q: "AI được xem 1.000 email. Mỗi email đều được gắn nhãn 'Thư rác' hoặc 'Bình thường'. Sau đó AI học cách phát hiện thư rác mới.", ans: "supervised", exp: "Vì dữ liệu đã có NHÃN (Thư rác/Bình thường)." },
+            { q: "Một cửa hàng đưa cho AI dữ liệu mua sắm. Không có tên nhóm. AI tự tìm những người có thói quen giống nhau và chia họ thành nhóm.", ans: "unsupervised", exp: "Vì AI KHÔNG CÓ NHÃN và phải TỰ TÌM các nhóm." },
+            { q: "AI được xem ảnh: Hoa hồng -> 'Hoa hồng', Hoa cúc -> 'Hoa cúc'. Sau đó nhận dạng bông hoa mới.", ans: "supervised", exp: "Có NHÃN tên từng loài hoa." },
+            { q: "AI nhận 5.000 bài hát mà KHÔNG ai ghi thể loại. AI tự nhóm các bài có giai điệu giống nhau.", ans: "unsupervised", exp: "KHÔNG có nhãn thể loại, AI tự gom nhóm." },
+            { q: "AI học từ ảnh trái cây ĐÃ GHI SẴN: Táo, Cam, Chuối. Sau đó xác định quả mới.", ans: "supervised", exp: "Đã ghi sẵn tên tức là CÓ NHÃN." },
+            { q: "AI nhận hàng nghìn bức ảnh KHÔNG TÊN và tự xếp thành nhóm các ảnh giống nhau.", ans: "unsupervised", exp: "KHÔNG TÊN tức là không có nhãn." },
+            { q: "(Thử thách) Một ứng dụng được cấp nhiều ảnh chai nước: Sữa, Cam, Trà. Mỗi ảnh ĐỀU GHI RÕ loại đồ uống để học.", ans: "supervised", exp: "Ghi rõ tên loại đồ uống chính là CÓ NHÃN." },
+            { q: "(Thử thách) Ứng dụng nhận ảnh chai nước nhưng TẤT CẢ TÊN BỊ XÓA. AI nhận thấy hình dáng giống nhau nên tự chia thành 3 nhóm.", ans: "unsupervised", exp: "Tên bị xóa (KHÔNG NHÃN), tự chia nhóm." }
+        ];
+
+        function startMission3Intro() {
+            playSound('whoosh');
+            showScreen('screen-m3-intro');
+        }
+
+        function startMission3Play() {
+            playSound('whoosh');
+            state.quizIndex = 0;
+            showScreen('screen-m3-play');
+            loadQuiz();
+        }
+
+        function loadQuiz() {
+            if(state.quizIndex >= quizData.length) {
+                endGame();
+                return;
+            }
+            
+            document.getElementById('quiz-feedback-overlay').classList.add('hidden');
+            document.getElementById('quiz-current').innerText = state.quizIndex + 1;
+            document.getElementById('quiz-question').innerText = quizData[state.quizIndex].q;
+            
+            // Reset Timer
+            state.quizTimeLeft = 7;
+            state.quizFastBonusActive = true;
+            updateTimerUI();
+            
+            clearInterval(state.quizTimer);
+            state.quizTimer = setInterval(() => {
+                state.quizTimeLeft -= 0.1;
+                if(state.quizTimeLeft <= 4) state.quizFastBonusActive = false; // Bonus ends after 3s
+                
+                updateTimerUI();
+                
+                if(state.quizTimeLeft <= 0) {
+                    clearInterval(state.quizTimer);
+                    handleTimeout();
+                }
+            }, 100);
+        }
+
+        function updateTimerUI() {
+            const bar = document.getElementById('timer-bar');
+            const pct = Math.max(0, (state.quizTimeLeft / 7) * 100);
+            bar.style.width = `${pct}%`;
+            document.getElementById('quiz-time-text').innerText = Math.ceil(state.quizTimeLeft);
+            
+            if(pct > 50) bar.className = 'h-full bg-green-500';
+            else if(pct > 25) bar.className = 'h-full bg-yellow-500';
+            else bar.className = 'h-full bg-red-500';
+        }
+
+        function handleTimeout() {
+            playSound('boop');
+            showQuizFeedback(false, "Hết giờ!", quizData[state.quizIndex].exp);
+        }
+
+        function answerQuiz(selectedType) {
+            clearInterval(state.quizTimer);
+            const currentQ = quizData[state.quizIndex];
+            const isCorrect = (selectedType === currentQ.ans);
+            
+            if(isCorrect) {
+                playSound('ting');
+                let pts = 10;
+                let msg = "+10 Điểm";
+                if(state.quizFastBonusActive) {
+                    pts += 5;
+                    msg = "+15 Điểm (Nhanh tay!)";
+                }
+                updateScore(pts);
+                showQuizFeedback(true, msg, currentQ.exp);
+            } else {
+                playSound('boop');
+                showQuizFeedback(false, "Chưa chính xác!", currentQ.exp);
+            }
+        }
+
+        function showQuizFeedback(isCorrect, pointText, explanation) {
+            const overlay = document.getElementById('quiz-feedback-overlay');
+            document.getElementById('quiz-feedback-icon').innerText = isCorrect ? '✅' : '❌';
+            document.getElementById('quiz-feedback-text').innerText = isCorrect ? 'Chính xác!' : 'Rất tiếc!';
+            document.getElementById('quiz-feedback-text').className = isCorrect ? 'text-3xl font-black text-green-400 mb-2' : 'text-3xl font-black text-red-400 mb-2';
+            
+            const pointsEl = document.getElementById('quiz-feedback-points');
+            pointsEl.innerText = isCorrect ? pointText : '0 Điểm';
+            pointsEl.className = isCorrect ? 'text-xl font-bold text-yellow-300 mb-6' : 'text-xl font-bold text-gray-400 mb-6';
+            
+            document.getElementById('quiz-feedback-explain').innerHTML = `<strong>Giải thích:</strong> ${explanation}`;
+            
+            overlay.classList.remove('hidden');
+            document.getElementById('btn-quiz-next').focus();
+        }
+
+        function nextQuiz() {
+            playSound('whoosh');
+            state.quizIndex++;
+            loadQuiz();
+        }
+
+        function endGame() {
+            updateScore(30); // Bonus for completion
+            updateProgress(3); // Finish M3
+            playSound('win');
+            
+            const finalScore = state.score;
+            document.getElementById('final-score').innerText = finalScore;
+            
+            let rankName = "";
+            let rankDesc = "";
+            let rankIcon = "";
+            
+            if (finalScore >= 110) {
+                rankName = "Siêu Đặc Vụ AI";
+                rankDesc = "Tuyệt đỉnh! Bạn nắm vững hoàn toàn cách AI học.";
+                rankIcon = "🏆";
+                triggerConfetti();
+            } else if (finalScore >= 80) {
+                rankName = "Chuyên Gia Huấn Luyện AI";
+                rankDesc = "Xuất sắc! Bạn phân biệt rất tốt hai cách học.";
+                rankIcon = "🧠";
+            } else if (finalScore >= 50) {
+                rankName = "Nhà Khám Phá AI";
+                rankDesc = "Khá tốt! Bạn đã hiểu cơ bản cách AI học.";
+                rankIcon = "🔍";
+            } else {
+                rankName = "Tân Binh AI";
+                rankDesc = "Khởi đầu rất nỗ lực! Hãy ôn tập lại Bí Kíp nhé!";
+                rankIcon = "🤖";
+            }
+            
+            document.getElementById('rank-name').innerText = rankName;
+            document.getElementById('rank-desc').innerText = rankDesc;
+            document.getElementById('rank-icon').innerText = rankIcon;
+            
+            showScreen('screen-final');
+        }
+
+        // Simple Particle Confetti
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const particles = [];
+            const colors = ['#91191c', '#3b82f6', '#8b5cf6', '#06b6d4', '#fbbf24'];
+            
+            for(let i=0; i<100; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 10 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speed: Math.random() * 3 + 2,
+                    angle: Math.random() * Math.PI * 2,
+                    spin: Math.random() * 0.2 - 0.1
+                });
+            }
+            
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let allDown = true;
+                
+                particles.forEach(p => {
+                    p.y += p.speed;
+                    p.x += Math.sin(p.angle) * 2;
+                    p.angle += p.spin;
+                    
+                    if(p.y < canvas.height) allDown = false;
+                    
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.angle);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+                    ctx.restore();
+                });
+                
+                if(!allDown) requestAnimationFrame(animate);
+                else ctx.clearRect(0,0, canvas.width, canvas.height);
+            }
+            animate();
+        }
+
+        // Auto resize handle
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('confetti');
+            if(canvas.width > 0) { // Only resize if it was active
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+        });
+
+    </script>
+</body>
+</html>
