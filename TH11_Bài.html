@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Thử thách Chuyên gia Cơ sở dữ liệu</title>
+  <style>
+    :root {
+      --blue: #124874;
+      --blue-dark: #0b3657;
+      --red: #cf373d;
+      --white: #ffffff;
+      --cyan: #38bfc2;
+      --purple: #7c69ce;
+      --ink: #15344c;
+      --muted: #668195;
+      --green: #16865b;
+      --gold: #f1aa35;
+      --line: #dce7ef;
+      --panel: rgba(255,255,255,.96);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 12%, rgba(56,191,194,.16), transparent 22%),
+        radial-gradient(circle at 92% 85%, rgba(124,105,206,.13), transparent 24%),
+        linear-gradient(135deg, #edf5fa 0%, #f8fbfd 58%, #edf3fa 100%);
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app {
+      min-height: 100vh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 94px;
+      flex: 0 0 94px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 18px;
+      padding: 14px 28px;
+      color: var(--white);
+      background: linear-gradient(120deg, var(--blue-dark), var(--blue));
+      box-shadow: 0 8px 24px rgba(18,72,116,.18);
+      position: relative;
+      z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 280px; }
+    .brand-badge {
+      width: 58px; height: 58px; border: 3px solid rgba(255,255,255,.78);
+      border-radius: 18px; display: grid; place-items: center;
+      background: rgba(255,255,255,.12); font-size: 30px;
+    }
+    .brand h1 { margin: 0; font-size: clamp(20px, 1.45vw, 28px); line-height: 1.05; }
+    .brand p { margin: 5px 0 0; color: #d8ebf5; font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+    .progress-wrap { width: min(460px, 27vw); text-align: center; }
+    .progress-label { display: flex; justify-content: space-between; margin-bottom: 7px; font-weight: 800; }
+    .progress-track { height: 12px; border-radius: 20px; background: rgba(255,255,255,.22); overflow: hidden; }
+    .progress-fill { height: 100%; width: 0; border-radius: 20px; background: linear-gradient(90deg, #55c8c7, #9bc5ff); transition: width .45s ease; }
+    .header-actions { justify-self: end; display: flex; align-items: center; gap: 10px; }
+    .icon-btn, .sound-btn {
+      min-width: 48px; height: 48px; border: 1px solid rgba(255,255,255,.28);
+      border-radius: 14px; color: var(--white); background: rgba(255,255,255,.12);
+      display: grid; place-items: center; font-weight: 900; font-size: 20px;
+    }
+    .icon-btn:hover, .sound-btn:hover { background: rgba(255,255,255,.22); }
+    .score-box {
+      height: 58px; min-width: 112px; border-radius: 16px; padding: 7px 15px;
+      background: var(--white); color: var(--blue); text-align: center;
+      box-shadow: 0 6px 16px rgba(6,44,73,.16);
+    }
+    .score-box span { display: block; font-size: 12px; font-weight: 800; color: var(--muted); }
+    .score-box strong { font-size: 25px; line-height: 1.15; }
+
+    .game-area {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: 1920px;
+      margin: 0 auto;
+      padding: 18px 28px 16px;
+      display: grid;
+      grid-template-rows: minmax(170px, 25vh) 1fr 72px;
+      gap: 12px;
+    }
+    .scenario-card {
+      border: 2px solid #cddfe9;
+      border-left: 9px solid var(--red);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: 0 10px 28px rgba(18,72,116,.09);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 18px 32px;
+      position: relative;
+    }
+    .scenario-card::before {
+      content: "TÌNH HUỐNG";
+      position: absolute; top: 13px; left: 26px;
+      color: var(--red); font-size: 13px; font-weight: 900; letter-spacing: 1.4px;
+    }
+    .scenario-card p {
+      margin: 14px 0 0;
+      max-width: 1500px;
+      font-size: clamp(26px, 1.9vw, 40px);
+      line-height: 1.25;
+      font-weight: 850;
+    }
+
+    .middle-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 36% 64%;
+      gap: 16px;
+    }
+    .left-panel, .right-panel {
+      min-height: 0;
+      border-radius: 20px;
+      background: rgba(255,255,255,.88);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 22px rgba(18,72,116,.07);
+      padding: 14px;
+    }
+    .panel-title {
+      display: flex; align-items: center; gap: 9px;
+      height: 34px; margin: 0 0 10px; color: var(--blue);
+      font-size: 17px; font-weight: 900;
+    }
+    .step-number {
+      width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+      color: var(--white); background: var(--blue); font-size: 15px;
+    }
+    .left-content { height: calc(100% - 44px); display: grid; grid-template-rows: 1fr 118px; gap: 10px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: stretch; }
+    .function-card {
+      user-select: none; touch-action: none;
+      border: 2px solid transparent; border-radius: 16px;
+      color: var(--white); min-height: 124px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 10px;
+      box-shadow: 0 7px 15px rgba(18,72,116,.13);
+      transition: transform .16s ease, opacity .16s ease, filter .16s ease;
+      font-size: clamp(15px, 1vw, 20px); font-weight: 900;
+    }
+    .function-card[data-name="Định nghĩa dữ liệu"] { background: var(--blue); }
+    .function-card[data-name="Cập nhật và truy xuất dữ liệu"] { background: var(--cyan); color: #083d4a; }
+    .function-card[data-name="Bảo mật và an toàn"] { background: var(--purple); }
+    .function-card:hover { transform: translateY(-3px); }
+    .function-card.dragging { opacity: .7; transform: scale(1.04) rotate(2deg); z-index: 1000; }
+    .function-card[disabled] { pointer-events: none; filter: grayscale(.25); }
+    .function-card.correct { border: 4px solid #69dc9c; box-shadow: 0 0 0 5px rgba(22,134,91,.12); }
+    .card-icon { font-size: 30px; margin-bottom: 7px; }
+
+    .dropzone {
+      border: 3px dashed #90aec1; border-radius: 16px;
+      background: #f7fafc; display: grid; place-items: center; text-align: center;
+      color: var(--muted); font-weight: 800; font-size: 17px;
+      transition: .18s ease;
+    }
+    .dropzone.drag-over { border-color: var(--cyan); background: #dff5f4; transform: scale(1.01); }
+    .dropzone.filled { border-style: solid; border-color: var(--blue); background: #edf5fa; color: var(--blue); font-size: 21px; }
+    .dropzone.correct { border-color: var(--green); background: #e6f6ed; color: var(--green); }
+    .dropzone.wrong { border-color: var(--red); background: #fdeced; color: var(--red); }
+
+    .right-content { height: calc(100% - 44px); display: grid; grid-template-rows: repeat(3, 1fr); gap: 9px; }
+    .reason-btn {
+      width: 100%; min-height: 72px;
+      border: 2px solid #d7e4ec; border-radius: 15px;
+      background: var(--white); color: var(--ink);
+      display: grid; grid-template-columns: 48px 1fr;
+      align-items: center; text-align: left; padding: 8px 16px 8px 8px;
+      font-size: clamp(16px, 1.15vw, 21px); line-height: 1.25;
+      transition: .16s ease;
+    }
+    .reason-btn:hover { border-color: #82acc5; transform: translateX(3px); }
+    .reason-btn.selected { border-color: var(--blue); background: #edf5fa; box-shadow: inset 5px 0 0 var(--blue); }
+    .reason-btn.correct { border-color: var(--green); background: #e7f6ed; box-shadow: inset 5px 0 0 var(--green); }
+    .reason-btn.wrong { border-color: var(--red); background: #fdeced; box-shadow: inset 5px 0 0 var(--red); }
+    .reason-btn[disabled] { cursor: default; }
+    .reason-letter {
+      width: 38px; height: 38px; margin: auto;
+      border-radius: 11px; background: #edf3f7; color: var(--blue);
+      display: grid; place-items: center; font-weight: 900;
+    }
+    .reason-btn.selected .reason-letter { background: var(--blue); color: var(--white); }
+    .reason-btn.correct .reason-letter { background: var(--green); color: var(--white); }
+    .reason-btn.wrong .reason-letter { background: var(--red); color: var(--white); }
+
+    .bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
+    .feedback {
+      min-height: 58px; border-radius: 15px; padding: 9px 15px;
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,.78); border: 1px solid var(--line);
+      font-weight: 800; font-size: clamp(14px, 1vw, 18px);
+    }
+    .feedback.success { background: #e7f6ed; border-color: #8fd1ac; color: #126845; }
+    .feedback.error { background: #fdeced; border-color: #e99b9f; color: #9d2429; }
+    .feedback.warning { background: #fff5df; border-color: #efc874; color: #805b16; }
+    .feedback-icon { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; display: grid; place-items: center; background: currentColor; }
+    .feedback-icon::after { content: "i"; color: var(--white); font-size: 19px; }
+    .feedback.success .feedback-icon::after { content: "✓"; }
+    .feedback.error .feedback-icon::after { content: "!"; }
+    .action-buttons { display: flex; justify-content: center; gap: 10px; }
+    .action-btn {
+      height: 58px; border: 0; border-radius: 15px; padding: 0 24px;
+      color: var(--white); font-size: 17px; font-weight: 900;
+      box-shadow: 0 7px 16px rgba(18,72,116,.15);
+    }
+    .check-btn { background: var(--red); min-width: 160px; }
+    .reset-btn { background: var(--blue); min-width: 130px; }
+    .next-btn { background: var(--green); min-width: 150px; }
+    .action-btn:hover { filter: brightness(1.07); transform: translateY(-1px); }
+    .action-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(.2); }
+    .bottom-space { justify-self: end; }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 50;
+      display: grid; place-items: center; padding: 24px;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(56,191,194,.20), transparent 25%),
+        radial-gradient(circle at 85% 75%, rgba(124,105,206,.16), transparent 25%),
+        linear-gradient(135deg, #eef6fa, #f9fbfd);
+    }
+    .overlay[hidden] { display: none; }
+    .intro-card, .summary-card {
+      width: min(980px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      border-radius: 28px;
+      background: var(--white);
+      border: 2px solid #d9e7ef;
+      box-shadow: 0 24px 60px rgba(18,72,116,.18);
+      text-align: center;
+      padding: 38px 54px;
+    }
+    .intro-icon { width: 92px; height: 92px; margin: 0 auto 16px; border-radius: 26px; display: grid; place-items: center; background: var(--blue); color: var(--white); font-size: 48px; transform: rotate(-3deg); box-shadow: 0 12px 24px rgba(18,72,116,.20); }
+    .intro-card h2, .summary-card h2 { margin: 8px 0 8px; color: var(--blue); font-size: clamp(34px, 3vw, 54px); }
+    .intro-sub { color: var(--red); font-weight: 900; font-size: clamp(18px, 1.5vw, 26px); }
+    .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 28px 0; }
+    .rule { border-radius: 18px; border: 1px solid var(--line); background: #f8fbfd; padding: 18px 14px; }
+    .rule b { display: grid; width: 38px; height: 38px; margin: 0 auto 10px; place-items: center; border-radius: 50%; background: var(--cyan); color: #083d4a; }
+    .rule strong { display: block; margin-bottom: 6px; color: var(--blue); }
+    .rule p { margin: 0; color: var(--muted); line-height: 1.4; }
+    .start-btn, .restart-btn {
+      border: 0; border-radius: 16px; min-width: 220px; height: 62px;
+      background: var(--red); color: var(--white); font-size: 20px; font-weight: 900;
+      box-shadow: 0 10px 20px rgba(207,55,61,.20);
+    }
+    .summary-score { width: 180px; height: 180px; margin: 18px auto; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--cyan) var(--score-angle), #e7eff4 0); position: relative; }
+    .summary-score::before { content: ""; position: absolute; inset: 13px; border-radius: 50%; background: var(--white); }
+    .summary-score strong { position: relative; z-index: 1; color: var(--blue); font-size: 48px; }
+    .summary-score small { display: block; font-size: 16px; color: var(--muted); }
+    .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0; }
+    .summary-stat { border-radius: 16px; padding: 14px 8px; background: #f4f8fb; border: 1px solid var(--line); }
+    .summary-stat strong { display: block; color: var(--blue); font-size: 28px; }
+    .summary-stat span { color: var(--muted); font-weight: 800; }
+
+    .confetti { position: fixed; z-index: 80; width: 10px; height: 16px; pointer-events: none; animation: confetti-fall 1.25s ease-out forwards; }
+    @keyframes confetti-fall { from { transform: translateY(-20px) rotate(0); opacity: 1; } to { transform: translateY(55vh) rotate(540deg); opacity: 0; } }
+    .drag-ghost { position: fixed; z-index: 2000; pointer-events: none; opacity: .92; transform: scale(1.05) rotate(2deg); box-shadow: 0 16px 30px rgba(18,72,116,.28); }
+
+    @media (max-width: 1100px) {
+      .topbar { grid-template-columns: 1fr auto; height: 82px; flex-basis: 82px; }
+      .progress-wrap { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 38%; }
+      .brand p { display: none; }
+      .game-area { padding: 12px 16px; grid-template-rows: 155px 1fr 64px; }
+      .middle-grid { grid-template-columns: 39% 61%; }
+      .scenario-card p { font-size: 27px; }
+    }
+    @media (max-height: 760px) {
+      .topbar { height: 74px; flex-basis: 74px; }
+      .brand-badge { width: 48px; height: 48px; }
+      .score-box { height: 50px; }
+      .game-area { padding-top: 8px; grid-template-rows: 130px 1fr 58px; }
+      .scenario-card p { font-size: 24px; }
+      .function-card { min-height: 88px; }
+      .left-content { grid-template-rows: 1fr 92px; }
+      .reason-btn { min-height: 58px; }
+      .action-btn { height: 50px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true">DB</div>
+        <div>
+          <h1>THỬ THÁCH CHUYÊN GIA CƠ SỞ DỮ LIỆU</h1>
+          <p>HỆ QUẢN TRỊ CƠ SỞ DỮ LIỆU</p>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span id="progressText">Tình huống 1/8</span><span id="progressPercent">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="header-actions">
+        <button class="sound-btn" id="soundBtn" type="button" title="Bật hoặc tắt âm thanh" aria-label="Tắt âm thanh">🔊</button>
+        <button class="icon-btn" id="fullscreenBtn" type="button" title="Toàn màn hình" aria-label="Toàn màn hình">⛶</button>
+        <div class="score-box"><span>ĐIỂM</span><strong id="scoreText">0/80</strong></div>
+      </div>
+    </header>
+
+    <main class="game-area">
+      <section class="scenario-card" aria-live="polite">
+        <p id="scenarioText"></p>
+      </section>
+      <section class="middle-grid">
+        <article class="left-panel">
+          <h2 class="panel-title"><span class="step-number">1</span> Chọn nhóm chức năng</h2>
+          <div class="left-content">
+            <div class="cards" id="functionCards"></div>
+            <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Ô trả lời nhóm chức năng">
+              Kéo nhóm chức năng vào đây
+            </div>
+          </div>
+        </article>
+        <article class="right-panel">
+          <h2 class="panel-title"><span class="step-number">2</span> Chọn lý do</h2>
+          <div class="right-content" id="reasonOptions"></div>
+        </article>
+      </section>
+      <section class="bottom-bar">
+        <div class="feedback" id="feedback" aria-live="polite">
+          <span class="feedback-icon"></span>
+          <span id="feedbackText">Quan sát tình huống rồi chọn đáp án.</span>
+        </div>
+        <div class="action-buttons">
+          <button class="action-btn reset-btn" id="resetBtn" type="button">LÀM LẠI</button>
+          <button class="action-btn check-btn" id="checkBtn" type="button">KIỂM TRA</button>
+          <button class="action-btn next-btn" id="nextBtn" type="button" hidden>TIẾP THEO</button>
+        </div>
+        <div class="bottom-space"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="overlay" id="introScreen">
+    <section class="intro-card">
+      <div class="intro-icon" aria-hidden="true">DB</div>
+      <h2>THỬ THÁCH CHUYÊN GIA CƠ SỞ DỮ LIỆU</h2>
+      <div class="intro-sub">Các nhóm chức năng của hệ quản trị cơ sở dữ liệu</div>
+      <div class="rules">
+        <div class="rule"><b>1</b><strong>Kéo thả</strong><p>Kéo nhóm chức năng phù hợp vào ô trả lời.</p></div>
+        <div class="rule"><b>2</b><strong>Chọn lý do</strong><p>Chọn một trong ba phương án giải thích.</p></div>
+        <div class="rule"><b>3</b><strong>Kiểm tra</strong><p>Câu đúng hoàn toàn được 10 điểm. Một phần đúng được 5 điểm.</p></div>
+      </div>
+      <button class="start-btn" id="startBtn" type="button">BẮT ĐẦU</button>
+    </section>
+  </div>
+
+  <div class="overlay" id="summaryScreen" hidden>
+    <section class="summary-card">
+      <h2>TỔNG KẾT</h2>
+      <div class="summary-score" id="summaryScore" style="--score-angle:0deg"><strong><span id="finalScore">0</span><small>/80 điểm</small></strong></div>
+      <h3 id="ratingText"></h3>
+      <div class="summary-stats">
+        <div class="summary-stat"><strong id="fullCount">0</strong><span>Đúng hoàn toàn</span></div>
+        <div class="summary-stat"><strong id="partialCount">0</strong><span>Đúng một phần</span></div>
+        <div class="summary-stat"><strong id="wrongCount">0</strong><span>Sai hoàn toàn</span></div>
+      </div>
+      <button class="restart-btn" id="restartBtn" type="button">CHƠI LẠI</button>
+    </section>
+  </div>
+
+  <script>
+    // =============================================================
+    // CHỈNH SỬA DỮ LIỆU TẠI ĐÂY: nội dung 8 tình huống, lý do và đáp án.
+    // =============================================================
+    const situations = [
+      {
+        text: "Tạo một CSDL mới có tên “QuanLyThuVien”.",
+        function: "Định nghĩa dữ liệu",
+        reason: "Khai báo CSDL với tên gọi xác định.",
+        distractors: ["Kiểm soát quyền truy cập của người dùng.", "Truy xuất dữ liệu theo tiêu chí."]
+      },
+      {
+        text: "Hai nhân viên cùng lúc chỉnh sửa số lượng tồn kho của một mặt hàng.",
+        function: "Bảo mật và an toàn",
+        reason: "Kiểm soát giao dịch để tránh tranh chấp dữ liệu, bảo đảm tính nhất quán.",
+        distractors: ["Sửa đổi kiến trúc bên trong của CSDL.", "Truy xuất dữ liệu theo tiêu chí."]
+      },
+      {
+        text: "Sửa địa chỉ của một học sinh vừa chuyển nhà.",
+        function: "Cập nhật và truy xuất dữ liệu",
+        reason: "Dữ liệu không còn đúng so với thực tế nên cần chỉnh sửa (thao tác sửa).",
+        distractors: ["Cài đặt ràng buộc toàn vẹn để kiểm soát tính đúng đắn của dữ liệu.", "Sao lưu dự phòng để khôi phục dữ liệu khi có sự cố."]
+      },
+      {
+        text: "Quy định điểm kiểm tra chỉ được nhập trong khoảng từ 0 đến 10.",
+        function: "Định nghĩa dữ liệu",
+        reason: "Cài đặt ràng buộc toàn vẹn để kiểm soát tính đúng đắn của dữ liệu.",
+        distractors: ["Kiểm soát giao dịch để tránh tranh chấp dữ liệu.", "Truy xuất dữ liệu theo tiêu chí."]
+      },
+      {
+        text: "Sao chép toàn bộ dữ liệu của nhà trường sang ổ đĩa dự phòng mỗi tuần để phòng khi máy chủ hỏng.",
+        function: "Bảo mật và an toàn",
+        reason: "Sao lưu dự phòng (backup) để khôi phục dữ liệu khi có sự cố.",
+        distractors: ["Khai báo CSDL với tên gọi xác định.", "Sửa đổi kiến trúc bên trong của CSDL."]
+      },
+      {
+        text: "Thêm cột “Số điện thoại” vào bảng Học sinh.",
+        function: "Định nghĩa dữ liệu",
+        reason: "Sửa đổi kiến trúc bên trong của CSDL.",
+        distractors: ["Dữ liệu không còn đúng so với thực tế nên cần chỉnh sửa.", "Kiểm soát quyền truy cập của người dùng."]
+      },
+      {
+        text: "Chỉ giáo viên chủ nhiệm mới được xem bảng điểm của lớp mình, học sinh khác không được xem.",
+        function: "Bảo mật và an toàn",
+        reason: "Kiểm soát quyền truy cập: chỉ người có thẩm quyền mới được đọc nội dung.",
+        distractors: ["Khai báo CSDL với tên gọi xác định.", "Cài đặt ràng buộc toàn vẹn để kiểm soát tính đúng đắn của dữ liệu."]
+      },
+      {
+        text: "Liệt kê tất cả học sinh có điểm Tin học từ 9 trở lên.",
+        function: "Cập nhật và truy xuất dữ liệu",
+        reason: "Truy xuất dữ liệu theo tiêu chí.",
+        distractors: ["Kiểm soát quyền truy cập của người dùng.", "Sao lưu dự phòng để khôi phục dữ liệu khi có sự cố."]
+      }
+    ];
+
+    // =============================================================
+    // CẤU HÌNH ĐIỂM SỐ: có thể chỉnh sửa nếu giáo viên cần.
+    // =============================================================
+    const POINTS = { FULL: 10, PARTIAL: 5, WRONG: 0 };
+
+    const functionNames = [
+      "Định nghĩa dữ liệu",
+      "Cập nhật và truy xuất dữ liệu",
+      "Bảo mật và an toàn"
+    ];
+    const functionIcons = { "Định nghĩa dữ liệu": "▦", "Cập nhật và truy xuất dữ liệu": "↻", "Bảo mật và an toàn": "◈" };
+
+    let playOrder = [];
+    let currentIndex = 0;
+    let score = 0;
+    let selectedFunction = null;
+    let selectedReason = null;
+    let checked = false;
+    let soundEnabled = true;
+    let audioContext = null;
+    let fullCount = 0;
+    let partialCount = 0;
+    let wrongCount = 0;
+
+    const el = id => document.getElementById(id);
+    const shuffle = array => {
+      const copy = [...array];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+
+    function initAudio() {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === "suspended") audioContext.resume();
+    }
+
+    function playTone(success) {
+      if (!soundEnabled) return;
+      initAudio();
+      const now = audioContext.currentTime;
+      const notes = success ? [523.25, 659.25, 783.99] : [220, 174.61];
+      notes.forEach((frequency, index) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = success ? "sine" : "triangle";
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(.0001, now + index * .09);
+        gain.gain.exponentialRampToValueAtTime(.12, now + index * .09 + .02);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + index * .09 + .18);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start(now + index * .09);
+        osc.stop(now + index * .09 + .19);
+      });
+    }
+
+    function startGame() {
+      initAudio();
+      playOrder = shuffle(situations);
+      currentIndex = 0;
+      score = 0;
+      fullCount = 0;
+      partialCount = 0;
+      wrongCount = 0;
+      el("introScreen").hidden = true;
+      el("summaryScreen").hidden = true;
+      el("scoreText").textContent = "0/80";
+      renderRound();
+    }
+
+    function renderRound() {
+      checked = false;
+      selectedFunction = null;
+      selectedReason = null;
+      const situation = playOrder[currentIndex];
+
+      el("progressText").textContent = `Tình huống ${currentIndex + 1}/8`;
+      el("progressPercent").textContent = `${Math.round(currentIndex / 8 * 100)}%`;
+      el("progressFill").style.width = `${currentIndex / 8 * 100}%`;
+      el("scenarioText").textContent = situation.text;
+      setFeedback("Quan sát tình huống rồi chọn đáp án.", "");
+      el("checkBtn").disabled = false;
+      el("checkBtn").hidden = false;
+      el("nextBtn").hidden = true;
+      el("resetBtn").disabled = false;
+
+      renderFunctionCards();
+      renderReasonOptions();
+      const dropzone = el("dropzone");
+      dropzone.className = "dropzone";
+      dropzone.innerHTML = "Kéo nhóm chức năng vào đây";
+    }
+
+    function renderFunctionCards() {
+      const container = el("functionCards");
+      container.innerHTML = "";
+      functionNames.forEach(name => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "function-card";
+        card.dataset.name = name;
+        card.draggable = true;
+        card.innerHTML = `<span class="card-icon">${functionIcons[name]}</span><span>${name}</span>`;
+        card.addEventListener("dragstart", event => {
+          if (checked) return event.preventDefault();
+          event.dataTransfer.setData("text/plain", name);
+          card.classList.add("dragging");
+        });
+        card.addEventListener("dragend", () => card.classList.remove("dragging"));
+        card.addEventListener("click", () => {
+          if (card.dataset.suppressClick === "true") {
+            card.dataset.suppressClick = "false";
+            return;
+          }
+          selectFunction(name);
+        });
+        attachPointerDrag(card);
+        container.appendChild(card);
+      });
+    }
+
+    function renderReasonOptions() {
+      const situation = playOrder[currentIndex];
+      const reasons = shuffle([situation.reason, ...situation.distractors]);
+      const container = el("reasonOptions");
+      container.innerHTML = "";
+      reasons.forEach((reason, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "reason-btn";
+        button.dataset.reason = reason;
+        button.innerHTML = `<span class="reason-letter">${String.fromCharCode(65 + index)}</span><span>${reason}</span>`;
+        button.addEventListener("click", () => selectReason(reason));
+        container.appendChild(button);
+      });
+    }
+
+    function selectFunction(name) {
+      if (checked) return;
+      selectedFunction = name;
+      const dropzone = el("dropzone");
+      dropzone.className = "dropzone filled";
+      dropzone.textContent = name;
+    }
+
+    function selectReason(reason) {
+      if (checked) return;
+      selectedReason = reason;
+      document.querySelectorAll(".reason-btn").forEach(button => {
+        button.classList.toggle("selected", button.dataset.reason === reason);
+      });
+    }
+
+    function resetRound() {
+      if (checked) return;
+      selectedFunction = null;
+      selectedReason = null;
+      const dropzone = el("dropzone");
+      dropzone.className = "dropzone";
+      dropzone.innerHTML = "Kéo nhóm chức năng vào đây";
+      document.querySelectorAll(".reason-btn").forEach(button => button.classList.remove("selected"));
+      setFeedback("Quan sát tình huống rồi chọn đáp án.", "");
+    }
+
+    function checkAnswer() {
+      if (checked) return;
+      if (!selectedFunction || !selectedReason) {
+        setFeedback("Em hãy chọn đầy đủ nhóm chức năng và lý do trước khi kiểm tra nhé!", "warning");
+        return;
+      }
+
+      checked = true;
+      const situation = playOrder[currentIndex];
+      const functionCorrect = selectedFunction === situation.function;
+      const reasonCorrect = selectedReason === situation.reason;
+      let points = 0;
+
+      document.querySelectorAll(".function-card, .reason-btn").forEach(control => control.disabled = true);
+      el("resetBtn").disabled = true;
+
+      if (functionCorrect) {
+        document.querySelector(`.function-card[data-name="${CSS.escape(situation.function)}"]`)?.classList.add("correct");
+        el("dropzone").classList.add("correct");
+      } else {
+        el("dropzone").classList.add("wrong");
+      }
+
+      if (reasonCorrect) {
+        document.querySelector(`.reason-btn[data-reason="${CSS.escape(situation.reason)}"]`)?.classList.add("correct");
+      } else {
+        const selectedButton = document.querySelector(`.reason-btn[data-reason="${CSS.escape(selectedReason)}"]`);
+        selectedButton?.classList.add("wrong");
+        document.querySelector(`.reason-btn[data-reason="${CSS.escape(situation.reason)}"]`)?.classList.add("correct");
+      }
+
+      if (functionCorrect && reasonCorrect) {
+        points = POINTS.FULL;
+        fullCount++;
+        setFeedback("Chính xác! Em đã xác định đúng nhóm chức năng và lý do.", "success");
+        celebrate();
+        playTone(true);
+      } else if (functionCorrect && !reasonCorrect) {
+        points = POINTS.PARTIAL;
+        partialCount++;
+        setFeedback(`Em đã xác định đúng nhóm chức năng, nhưng cần xem lại lý do nhé! Lý do đúng: ${situation.reason}`, "warning");
+        playTone(false);
+      } else if (!functionCorrect && reasonCorrect) {
+        points = POINTS.PARTIAL;
+        partialCount++;
+        setFeedback(`Em đã chọn đúng lý do, nhưng nhóm chức năng chưa chính xác! Nhóm đúng: ${situation.function}`, "warning");
+        playTone(false);
+      } else {
+        points = POINTS.WRONG;
+        wrongCount++;
+        setFeedback(`Chưa chính xác! Hãy cùng xem lại đáp án nhé! Nhóm đúng: ${situation.function}. Lý do đúng: ${situation.reason}`, "error");
+        playTone(false);
+      }
+
+      score += points;
+      el("scoreText").textContent = `${score}/80`;
+      el("checkBtn").hidden = true;
+      el("nextBtn").hidden = false;
+      el("progressText").textContent = `Tình huống ${currentIndex + 1}/8`;
+      el("progressPercent").textContent = `${Math.round((currentIndex + 1) / 8 * 100)}%`;
+      el("progressFill").style.width = `${(currentIndex + 1) / 8 * 100}%`;
+    }
+
+    function setFeedback(text, type) {
+      el("feedback").className = "feedback" + (type ? ` ${type}` : "");
+      el("feedbackText").textContent = text;
+    }
+
+    function nextSituation() {
+      if (!checked) return;
+      if (currentIndex < 7) {
+        currentIndex++;
+        renderRound();
+      } else {
+        showSummary();
+      }
+    }
+
+    function showSummary() {
+      el("finalScore").textContent = score;
+      el("fullCount").textContent = fullCount;
+      el("partialCount").textContent = partialCount;
+      el("wrongCount").textContent = wrongCount;
+      el("summaryScore").style.setProperty("--score-angle", `${score / 80 * 360}deg`);
+
+      let rating = "";
+      if (score >= 70) rating = "Chuyên gia CSDL xuất sắc!";
+      else if (score >= 50) rating = "Em đã nắm khá tốt kiến thức!";
+      else if (score >= 30) rating = "Hãy luyện tập thêm để tiến bộ nhé!";
+      else rating = "Cùng ôn tập và thử lại nào!";
+      el("ratingText").textContent = rating;
+      el("summaryScreen").hidden = false;
+      if (score >= 50) celebrate(70);
+    }
+
+    function celebrate(count = 28) {
+      const colors = ["#124874", "#cf373d", "#38bfc2", "#7c69ce", "#f1aa35", "#ffffff"];
+      for (let i = 0; i < count; i++) {
+        const piece = document.createElement("span");
+        piece.className = "confetti";
+        piece.style.left = `${Math.random() * 100}vw`;
+        piece.style.top = `${-10 - Math.random() * 20}px`;
+        piece.style.background = colors[i % colors.length];
+        piece.style.animationDelay = `${Math.random() * .35}s`;
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 1800);
+      }
+    }
+
+    function attachPointerDrag(card) {
+      let dragging = false;
+      let ghost = null;
+      let startX = 0;
+      let startY = 0;
+      let moved = false;
+
+      card.addEventListener("pointerdown", event => {
+        if (checked) return;
+        dragging = true;
+        moved = false;
+        card.dataset.suppressClick = "false";
+        startX = event.clientX;
+        startY = event.clientY;
+        card.setPointerCapture(event.pointerId);
+        ghost = card.cloneNode(true);
+        ghost.className = "function-card drag-ghost";
+        ghost.style.width = `${card.offsetWidth}px`;
+        ghost.style.height = `${card.offsetHeight}px`;
+        document.body.appendChild(ghost);
+        moveGhost(event);
+        card.classList.add("dragging");
+      });
+
+      function moveGhost(event) {
+        if (!ghost) return;
+        if (Math.hypot(event.clientX - startX, event.clientY - startY) > 5) {
+          moved = true;
+        }
+        ghost.style.left = `${event.clientX - ghost.offsetWidth / 2}px`;
+        ghost.style.top = `${event.clientY - ghost.offsetHeight / 2}px`;
+        const rect = el("dropzone").getBoundingClientRect();
+        const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+        el("dropzone").classList.toggle("drag-over", inside);
+      }
+
+      card.addEventListener("pointermove", event => {
+        if (!dragging) return;
+        moveGhost(event);
+      });
+
+      card.addEventListener("pointerup", event => {
+        if (!dragging) return;
+        dragging = false;
+        card.dataset.suppressClick = moved ? "true" : "false";
+        card.classList.remove("dragging");
+        const rect = el("dropzone").getBoundingClientRect();
+        const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+        if (ghost) ghost.remove();
+        ghost = null;
+        el("dropzone").classList.remove("drag-over");
+        if (inside) selectFunction(card.dataset.name);
+      });
+
+      card.addEventListener("pointercancel", () => {
+        dragging = false;
+        card.classList.remove("dragging");
+        if (ghost) ghost.remove();
+        ghost = null;
+      });
+    }
+
+    el("startBtn").addEventListener("click", startGame);
+    el("restartBtn").addEventListener("click", startGame);
+    el("checkBtn").addEventListener("click", checkAnswer);
+    el("nextBtn").addEventListener("click", nextSituation);
+    el("resetBtn").addEventListener("click", resetRound);
+    el("soundBtn").addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      el("soundBtn").textContent = soundEnabled ? "🔊" : "🔇";
+      el("soundBtn").setAttribute("aria-label", soundEnabled ? "Tắt âm thanh" : "Bật âm thanh");
+    });
+    el("fullscreenBtn").addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    });
+
+    const dropzone = el("dropzone");
+    dropzone.addEventListener("dragover", event => {
+      if (checked) return;
+      event.preventDefault();
+      dropzone.classList.add("drag-over");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+    dropzone.addEventListener("drop", event => {
+      event.preventDefault();
+      dropzone.classList.remove("drag-over");
+      if (checked) return;
+      const name = event.dataTransfer.getData("text/plain");
+      if (functionNames.includes(name)) selectFunction(name);
+    });
+    dropzone.addEventListener("click", () => {
+      if (selectedFunction) return;
+      setFeedback("Hãy nhấn vào một thẻ nhóm chức năng, sau đó nhấn vào ô này.", "warning");
+    });
+    dropzone.addEventListener("keydown", event => {
+      if ((event.key === "Enter" || event.key === " ") && selectedFunction) {
+        event.preventDefault();
+        selectFunction(selectedFunction);
+      }
+    });
+  </script>
+</body>
+</html>
